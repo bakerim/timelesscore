@@ -21,9 +21,9 @@ void main() {
   );
 }
 
+// --- SPLASH SCREEN ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -39,31 +39,18 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _baslat() async {
-    // 1. Reklam SDK
     setState(() { _status = "Reklam servisi hazırlanıyor..."; _progress = 0.2; });
     try {
-      if (!kIsWeb) {
-        await MobileAds.instance.initialize();
-      }
-    } catch (e) {
-      print("Reklam SDK hatası: $e");
-    }
+      if (!kIsWeb) { await MobileAds.instance.initialize(); }
+    } catch (e) { print("Reklam SDK hatası: $e"); }
 
-    // 2. Ses Dosyaları
     setState(() { _status = "Sesler yükleniyor..."; _progress = 0.5; });
     try {
       await FlameAudio.audioCache.loadAll([
-        'music/bg_music.mp3',
-        'sfx/move.mp3',
-        'sfx/drop.mp3',
-        'sfx/clear.mp3',
-        'sfx/gameover.mp3',
+        'music/bg_music.mp3', 'sfx/move.mp3', 'sfx/drop.mp3', 'sfx/clear.mp3', 'sfx/gameover.mp3',
       ]);
-    } catch (e) {
-      print("Ses dosyaları yüklenirken hata: $e");
-    }
+    } catch (e) { print("Ses hatası: $e"); }
 
-    // 3. Skor Verisi
     setState(() { _status = "Veriler yükleniyor..."; _progress = 0.8; });
     await ScoreManager.yukle();
 
@@ -80,9 +67,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121232),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]).createShader(bounds),
               child: const Text("TIMELESS\nCORE", textAlign: TextAlign.center, style: TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
@@ -91,29 +76,75 @@ class _SplashScreenState extends State<SplashScreen> {
             CircularProgressIndicator(value: _progress, color: Colors.purpleAccent),
             const SizedBox(height: 20),
             Text(_status, style: const TextStyle(color: Colors.white54, fontSize: 16)),
-          ],
-        ),
+        ]),
       ),
     );
   }
 }
 
-class GameScreen extends StatelessWidget {
+// --- GAME SCREEN (BANNER REKLAM ALANI) ---
+class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  BannerAd? _bannerAd;
+  bool _isBannerLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) { _loadBanner(); }
+  }
+
+  void _loadBanner() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) { setState(() { _isBannerLoaded = true; }); },
+        onAdFailedToLoad: (ad, error) { ad.dispose(); },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: GameWidget<TimelessGame>(
-          game: TimelessGame(),
-          overlayBuilderMap: {
-            'AnaMenu': (context, game) => AnaMenuOverlay(game: game),
-            'GameOver': (context, game) => GameOverOverlay(game: game),
-            'Ayarlar': (context, game) => AyarlarOverlay(game: game),
-          },
-          initialActiveOverlays: const ['AnaMenu'],
-        ),
-      );
+      body: Column(
+        children: [
+          Expanded(
+            child: GameWidget<TimelessGame>(
+              game: TimelessGame(),
+              overlayBuilderMap: {
+                'AnaMenu': (context, game) => AnaMenuOverlay(game: game),
+                'GameOver': (context, game) => GameOverOverlay(game: game),
+                'Ayarlar': (context, game) => AyarlarOverlay(game: game),
+                'PauseMenu': (context, game) => PauseMenuOverlay(game: game),
+              },
+              initialActiveOverlays: const ['AnaMenu'],
+            ),
+          ),
+          if (_isBannerLoaded)
+            SizedBox(
+              width: _bannerAd!.size.width.toDouble(),
+              height: _bannerAd!.size.height.toDouble(),
+              child: AdWidget(ad: _bannerAd!),
+            )
+          else if (!kIsWeb)
+            const SizedBox(height: 50),
+        ],
+      ),
+    );
   }
 }
 
@@ -162,17 +193,18 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   bool isPaused = true;
   bool sesAcik = true;
 
-  // ADMOB
   RewardedAd? _rewardedAd;
   bool reklamKullanildi = false; 
   bool reklamHazir = false;
-  final String reklamBirimID = 'ca-app-pub-3940256099942544/5224354917'; // Test ID
+  final String reklamBirimID = 'ca-app-pub-3940256099942544/5224354917';
 
   double suruklemeBirikimiX = 0;
   double suruklemeBirikimiY = 0;
   bool dropLock = false;
 
   final Paint slotPaint = Paint()..color = Tasarim.bosSlot..style = PaintingStyle.fill;
+  // Göz yoran glow efekti kaldırıldı
+
   final Random _rng = Random();
 
   @override
@@ -180,26 +212,18 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
 
   @override
   Future<void> onLoad() async {
-    // ScoreManager.yukle(); // Splash ekranında zaten yüklendi
     reklamYukle();
     
-    // MÜZİK BAŞLAT
     if (sesAcik) {
-      try {
-        if(!kIsWeb) {
-             FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3);
-        } else {
-            // Web için kullanıcı etkileşimi gerekebilir, şimdilik deneyelim
-             FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3);
-        }
-       
-      } catch(e) { print("Müzik bulunamadı veya hata: $e"); }
+      try { FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3); } catch(e) {}
     }
 
     add(RectangleComponent(
       position: Vector2(0, 0), size: Vector2(size.x, hudHeight),
       paint: Paint()..color = Tasarim.arkaPlan.withOpacity(0.95), priority: 5
     ));
+
+    add(PauseButton(position: Vector2(size.x - 60, 50), onTapAction: togglePause));
 
     skorYazisi = TextComponent(
       text: '0', textRenderer: TextPaint(style: const TextStyle(color: Colors.white, fontSize: 60, fontWeight: FontWeight.w900)),
@@ -221,54 +245,38 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     add(comboYazisi);
   }
 
+  void togglePause() {
+    if (isGameOver) return;
+    if (isPaused) { overlays.remove('PauseMenu'); isPaused = false; }
+    else { overlays.add('PauseMenu'); isPaused = true; }
+  }
+
   void reklamYukle() {
-    if (kIsWeb) return; // Web'de reklam desteği sınırlı olabilir veya farklı yapılandırma gerekebilir
-    
+    if (kIsWeb) return;
     RewardedAd.load(
-      adUnitId: reklamBirimID,
-      request: const AdRequest(),
+      adUnitId: reklamBirimID, request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          reklamHazir = true;
-        },
-        onAdFailedToLoad: (error) {
-          print('Reklam yüklenemedi: $error');
-          _rewardedAd = null;
-          reklamHazir = false;
-        },
+        onAdLoaded: (ad) { _rewardedAd = ad; reklamHazir = true; },
+        onAdFailedToLoad: (error) { _rewardedAd = null; reklamHazir = false; },
       ),
     );
   }
 
   void reklamIzleVeDevamEt() {
-    if (kIsWeb) {
-        // Web için geçici çözüm: direkt devam et
-        devamEt();
-        return;
-    }
-
-    if (_rewardedAd != null) {
-      _rewardedAd!.show(onUserEarnedReward: (adWithoutView, reward) {
-          devamEt();
-        });
-    } else {
-        print("Reklam hazır değil");
-    }
+    if (kIsWeb) { devamEt(); return; }
+    if (_rewardedAd != null) { _rewardedAd!.show(onUserEarnedReward: (adWithoutView, reward) { devamEt(); }); }
   }
 
   void devamEt() {
       altSatirlariTemizle(4);
       overlays.remove('GameOver');
-      isGameOver = false; isPaused = false;
-      reklamKullanildi = true;
-      reklamHazir = false;
+      isGameOver = false; isPaused = false; reklamKullanildi = true; reklamHazir = false;
       reklamYukle();
+      spawnOyuncu(); 
   }
 
   void altSatirlariTemizle(int satirSayisi) {
       if (sesAcik) try { FlameAudio.play('sfx/clear.mp3'); } catch(e){} 
-      
       double gridStartY = hudHeight + 20;
       double gridAvailableHeight = size.y - gridStartY - 20;
       int rows = (gridAvailableHeight / gridSize).floor();
@@ -280,44 +288,39 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
            k.removeFromParent();
          }
       });
+
+      double kaydirmaMiktari = satirSayisi * gridSize;
+      children.whereType<Kare>().where((k) => k.tur == "duvar").forEach((k) {
+        if (k.position.y < temizlenecekLimitY) { k.position.y += kaydirmaMiktari; }
+      });
   }
 
   void oyunuBaslat() { 
       overlays.remove('AnaMenu'); 
       isPaused = false; 
-      
-      // Web'de ses için kullanıcı etkileşimi sonrası tekrar başlatmayı dene
-      if (sesAcik && !FlameAudio.bgm.isPlaying) {
-          try { FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3); } catch(e){}
-      }
-      
+      if (sesAcik && !FlameAudio.bgm.isPlaying) { try { FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3); } catch(e){} }
       oyunuSifirla(); 
   }
   
   void anaMenuyeDon() {
-    overlays.remove('GameOver');
-    overlays.add('AnaMenu');
-    // Oyun alanındaki kareleri temizle
+    overlays.remove('GameOver'); overlays.remove('PauseMenu'); overlays.add('AnaMenu');
     children.whereType<Kare>().where((k) => k.tur != "hud").forEach((k) => k.removeFromParent());
-    isPaused = true;
-    isGameOver = false;
+    isPaused = true; isGameOver = false;
   }
   
   void oyunuBitir() { 
     isGameOver = true; isPaused = true; 
     if (sesAcik) try { FlameAudio.play('sfx/gameover.mp3'); } catch(e){}
-    
     ScoreManager.kaydet(skor);
     ScoreManager.yukle().then((_) { yuksekSkorYazisi.text = 'Best: ${ScoreManager.highScore}'; });
     overlays.add('GameOver'); 
   }
 
   void oyunuSifirla() {
-    overlays.remove('GameOver');
+    overlays.remove('GameOver'); overlays.remove('PauseMenu');
     children.whereType<Kare>().where((k) => k.tur != "hud").forEach((k) => k.removeFromParent());
     skor = 0; comboSayaci = 0; comboYazisi.text = ''; oyunHizi = 0.5;
-    skorYazisi.text = '$skor';
-    yuksekSkorYazisi.text = 'Best: ${ScoreManager.highScore}';
+    skorYazisi.text = '$skor'; yuksekSkorYazisi.text = 'Best: ${ScoreManager.highScore}';
     isGameOver = false; isPaused = false; dropLock = false; reklamKullanildi = false;
     spawnOyuncu();
   }
@@ -329,9 +332,7 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     double gridOffsetX = (size.x - (cols * gridSize)) / 2;
     double baslangicX = gridOffsetX + (cols / 2).floor() * gridSize;
     double baslangicY = gridStartY; 
-
     if (carpismaVarMi(baslangicX, baslangicY)) { oyunuBitir(); return; }
-
     oyuncu = Kare(gridSize, renk: Tasarim.rastgeleRenk(), tur: "oyuncu");
     oyuncu.position = Vector2(baslangicX, baslangicY);
     add(oyuncu);
@@ -351,11 +352,8 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
      var oyuncular = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
      if (oyuncular.isEmpty) return;
      Kare aktifKare = oyuncular.first;
-      if (carpismaVarMi(aktifKare.position.x, aktifKare.position.y + gridSize)) { 
-        blokKatilastir(aktifKare); 
-      } else { 
-        aktifKare.position.y += gridSize; 
-      }
+      if (carpismaVarMi(aktifKare.position.x, aktifKare.position.y + gridSize)) { blokKatilastir(aktifKare); }
+      else { aktifKare.position.y += gridSize; }
   }
 
   bool carpismaVarMi(double x, double y) {
@@ -376,7 +374,7 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     if (sesAcik) try { FlameAudio.play('sfx/drop.mp3'); } catch(e){} 
     k.tur = "duvar";
     bool satirSilindi = satirTemizle();
-    if (!satirSilindi) { comboSayaci = 0; comboYazisi.text = ''; }
+    if (!satirSilindi) { skor += 1; skorYazisi.text = '$skor'; comboSayaci = 0; comboYazisi.text = ''; }
     spawnOyuncu();
   }
 
@@ -405,7 +403,8 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
       if (satirdakiBloklar.length >= cols) {
         if (sesAcik) try { FlameAudio.play('sfx/clear.mp3'); } catch(e){} 
         for (var blok in satirdakiBloklar) { patlamaEfekti(blok.position, blok.paint.color); blok.removeFromParent(); }
-        temizlendi = true; comboSayaci++; int puan = 100 * comboSayaci; skor += puan;
+        temizlendi = true; comboSayaci++; 
+        int puan = 100 * comboSayaci; skor += puan;
         oyunHizi = max(0.1, oyunHizi - 0.02);
         skorYazisi.text = '$skor';
         if (comboSayaci > 1) { comboYazisi.text = '${comboSayaci}x COMBO'; }
@@ -433,6 +432,7 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
         double x = gridOffsetX + i * gridSize;
         double y = gridStartY + j * gridSize;
         RRect rrect = RRect.fromRectAndRadius(Rect.fromLTWH(x + 4, y + 4, gridSize - 8, gridSize - 8), const Radius.circular(12.0));
+        // Göz yoran parlama efekti kaldırıldı. Sadece temiz slot çiziliyor.
         canvas.drawRRect(rrect, slotPaint);
       }
     }
@@ -446,14 +446,10 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     if (aktifOyuncular.isEmpty) return;
     Kare aktifKare = aktifOyuncular.first;
     double dx = info.delta.global.x; double dy = info.delta.global.y;
-
     if (dx.abs() > dy.abs()) {
       suruklemeBirikimiY = 0; suruklemeBirikimiX += dx;
-      if (suruklemeBirikimiX >= gridSize) { 
-        hareketEt(aktifKare, 1, 0); suruklemeBirikimiX = 0; 
-      } else if (suruklemeBirikimiX <= -gridSize) { 
-        hareketEt(aktifKare, -1, 0); suruklemeBirikimiX = 0; 
-      }
+      if (suruklemeBirikimiX >= gridSize) { hareketEt(aktifKare, 1, 0); suruklemeBirikimiX = 0; } 
+      else if (suruklemeBirikimiX <= -gridSize) { hareketEt(aktifKare, -1, 0); suruklemeBirikimiX = 0; }
     } else {
       if (dropLock) return;
       if (dy < 0) { suruklemeBirikimiY = 0; return; } 
@@ -484,7 +480,23 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   }
 }
 
-// --- GÖRSEL BİLEŞENLER ---
+// --- BİLEŞENLER ---
+
+class PauseButton extends PositionComponent with TapCallbacks {
+  final VoidCallback onTapAction;
+  PauseButton({required Vector2 position, required this.onTapAction})
+      : super(position: position, size: Vector2(40, 40), anchor: Anchor.center, priority: 20);
+  @override
+  void render(Canvas canvas) {
+    final paint = Paint()..color = Colors.white54..style = PaintingStyle.stroke..strokeWidth = 3;
+    canvas.drawRRect(RRect.fromRectAndRadius(size.toRect(), const Radius.circular(8)), paint);
+    canvas.drawLine(Offset(size.x * 0.35, size.y * 0.25), Offset(size.x * 0.35, size.y * 0.75), paint);
+    canvas.drawLine(Offset(size.x * 0.65, size.y * 0.25), Offset(size.x * 0.65, size.y * 0.75), paint);
+  }
+  @override
+  void onTapDown(TapDownEvent event) { onTapAction(); }
+}
+
 class Kare extends PositionComponent {
   String tur;
   Paint paint;
@@ -493,7 +505,6 @@ class Kare extends PositionComponent {
     paint = Paint()..color = renk..style = PaintingStyle.fill,
     glowPaint = Paint()..color = renk.withOpacity(0.6)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12), 
     super(size: Vector2(boy, boy), anchor: Anchor.topLeft);
-
   @override
   void render(Canvas canvas) {
     double padding = 3.0; 
@@ -504,6 +515,8 @@ class Kare extends PositionComponent {
   }
 }
 
+// --- OVERLAYS ---
+
 class AnaMenuOverlay extends StatelessWidget {
   final TimelessGame game;
   const AnaMenuOverlay({super.key, required this.game});
@@ -511,17 +524,42 @@ class AnaMenuOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Tasarim.arkaPlan, Color(0xFF0A0A20)])),
-      child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            // LOGO
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]).createShader(bounds),
-              child: const Text("TIMELESS\nCORE", textAlign: TextAlign.center, style: TextStyle(fontSize: 50, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
-            ),
-            const SizedBox(height: 80),
-            ElevatedButton.icon(onPressed: () => game.oyunuBaslat(), style: ElevatedButton.styleFrom(backgroundColor: Tasarim.playButton, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20)), icon: const Icon(Icons.play_arrow, size: 30), label: const Text("OYNA", style: TextStyle(fontSize: 24))),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: () { game.overlays.remove('AnaMenu'); game.overlays.add('Ayarlar'); }, child: const Text("AYARLAR")),
-      ])),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]).createShader(bounds),
+                  child: const Text("TIMELESS\nCORE", textAlign: TextAlign.center, style: TextStyle(fontSize: 50, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
+                ),
+                const SizedBox(height: 50),
+                ElevatedButton.icon(onPressed: () => game.oyunuBaslat(), style: ElevatedButton.styleFrom(backgroundColor: Tasarim.playButton, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20)), icon: const Icon(Icons.play_arrow, size: 30), label: const Text("OYNA", style: TextStyle(fontSize: 24))),
+                const SizedBox(height: 20),
+                ElevatedButton(onPressed: () { game.overlays.remove('AnaMenu'); game.overlays.add('Ayarlar'); }, child: const Text("AYARLAR")),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class PauseMenuOverlay extends StatelessWidget {
+  final TimelessGame game;
+  const PauseMenuOverlay({super.key, required this.game});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+             const Text("DURAKLATILDI", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+             const SizedBox(height: 40),
+             ElevatedButton.icon(onPressed: () => game.togglePause(), style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)), icon: const Icon(Icons.play_arrow), label: const Text("DEVAM ET")),
+             const SizedBox(height: 20),
+             ElevatedButton.icon(onPressed: () => game.anaMenuyeDon(), style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), icon: const Icon(Icons.home), label: const Text("ANA MENÜ")),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -533,32 +571,27 @@ class GameOverOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black.withOpacity(0.9),
-      child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text("OYUN BİTTİ", style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-            Text("Skor: ${game.skor}", style: const TextStyle(color: Colors.white, fontSize: 24)),
-            const SizedBox(height: 10),
-            Text("Rekor: ${ScoreManager.highScore}", style: const TextStyle(color: Colors.amber, fontSize: 18)),
-            const SizedBox(height: 30),
-            
-            // REKLAM BUTONU
-            if (!game.reklamKullanildi && (game.reklamHazir || kIsWeb))
-            ElevatedButton.icon(
-              onPressed: () => game.reklamIzleVeDevamEt(),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
-              icon: const Icon(Icons.video_library),
-              label: const Text("İZLE VE DEVAM ET"),
-            ),
-            
-            if (!game.reklamKullanildi && !game.reklamHazir && !kIsWeb)
-            const Padding(padding: EdgeInsets.all(8.0), child: Text("Reklam Yükleniyor...", style: TextStyle(color: Colors.white54))),
-
-            const SizedBox(height: 20),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                IconButton(icon: const Icon(Icons.home, size: 40, color: Colors.white), onPressed: () => game.anaMenuyeDon()),
-                const SizedBox(width: 30),
-                IconButton(icon: const Icon(Icons.refresh, size: 50, color: Colors.blue), onPressed: () => game.oyunuSifirla()),
-            ])
-      ])),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text("OYUN BİTTİ", style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                Text("Skor: ${game.skor}", style: const TextStyle(color: Colors.white, fontSize: 24)),
+                const SizedBox(height: 10),
+                Text("Rekor: ${ScoreManager.highScore}", style: const TextStyle(color: Colors.amber, fontSize: 18)),
+                const SizedBox(height: 30),
+                if (!game.reklamKullanildi && (game.reklamHazir || kIsWeb))
+                ElevatedButton.icon(onPressed: () => game.reklamIzleVeDevamEt(), style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)), icon: const Icon(Icons.video_library), label: const Text("İZLE VE DEVAM ET")),
+                if (!game.reklamKullanildi && !game.reklamHazir && !kIsWeb)
+                const Padding(padding: EdgeInsets.all(8.0), child: Text("Reklam Yükleniyor...", style: TextStyle(color: Colors.white54))),
+                const SizedBox(height: 20),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    IconButton(icon: const Icon(Icons.home, size: 40, color: Colors.white), onPressed: () => game.anaMenuyeDon()),
+                    const SizedBox(width: 30),
+                    IconButton(icon: const Icon(Icons.refresh, size: 50, color: Colors.blue), onPressed: () => game.oyunuSifirla()),
+                ])
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -573,22 +606,22 @@ class AyarlarOverlay extends StatefulWidget {
 class _AyarlarOverlayState extends State<AyarlarOverlay> {
   @override
   Widget build(BuildContext context) {
-    return Container(color: Tasarim.arkaPlan, child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-       const Text("AYARLAR", style: TextStyle(color: Colors.white, fontSize: 30)),
-       const SizedBox(height: 40),
-       SwitchListTile(
-         title: const Text("Ses Efektleri", style: TextStyle(color: Colors.white)), 
-         value: widget.game.sesAcik, 
-         onChanged: (val) {
-           setState(() { widget.game.sesAcik = val; });
-           if (!val) { 
-             FlameAudio.bgm.stop(); 
-           } else { 
-             try { FlameAudio.bgm.play('music/bg_music.mp3'); } catch(e){}
-           }
-       }),
-       const SizedBox(height: 40),
-       ElevatedButton(onPressed: () { widget.game.overlays.remove('Ayarlar'); widget.game.overlays.add('AnaMenu'); }, child: const Text("GERİ DÖN")),
-    ])));
+    return Container(
+      color: Tasarim.arkaPlan,
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+             const Text("AYARLAR", style: TextStyle(color: Colors.white, fontSize: 30)),
+             const SizedBox(height: 40),
+             SwitchListTile(title: const Text("Ses Efektleri", style: TextStyle(color: Colors.white)), value: widget.game.sesAcik, onChanged: (val) {
+               setState(() { widget.game.sesAcik = val; });
+               if (!val) { FlameAudio.bgm.stop(); } else { try { FlameAudio.bgm.play('music/bg_music.mp3'); } catch(e){} }
+             }),
+             const SizedBox(height: 40),
+             ElevatedButton(onPressed: () { widget.game.overlays.remove('Ayarlar'); widget.game.overlays.add('AnaMenu'); }, child: const Text("GERİ DÖN")),
+          ]),
+        ),
+      ),
+    );
   }
 }
