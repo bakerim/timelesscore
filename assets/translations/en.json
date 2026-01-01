@@ -1,0 +1,12 @@
+{
+    "basla": "PLAY",
+    "secenekler": "OPTIONS",
+    "oyun_bitti": "GAME OVER",
+    "skor": "Score",
+    "rekor": "Best",
+    "sonraki": "NEXT",
+    "tekrar_basla": "Tap to Restart",
+    "ses_efektleri": "Sound Effects",
+    "geri_don": "BACK",
+    "dil": "Language / Dil"
+  }
