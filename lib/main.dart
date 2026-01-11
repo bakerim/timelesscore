@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
     setState(() { _status = "Sesler yükleniyor..."; _progress = 0.5; });
     try {
       await FlameAudio.audioCache.loadAll([
-        'music/bg_music.mp3', 'sfx/move.mp3', 'sfx/drop.mp3', 'sfx/clear.mp3', 'sfx/gameover.mp3',
+        'sfx/move.mp3', 'sfx/drop.mp3', 'sfx/clear.mp3', 'sfx/gameover.mp3',
       ]);
     } catch (e) { print("Ses hatası: $e"); }
 
@@ -214,10 +214,6 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   Future<void> onLoad() async {
     reklamYukle();
     
-    if (sesAcik) {
-      try { FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3); } catch(e) {}
-    }
-
     add(RectangleComponent(
       position: Vector2(0, 0), size: Vector2(size.x, hudHeight),
       paint: Paint()..color = Tasarim.arkaPlan.withOpacity(0.95), priority: 5
@@ -298,7 +294,6 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   void oyunuBaslat() { 
       overlays.remove('AnaMenu'); 
       isPaused = false; 
-      if (sesAcik && !FlameAudio.bgm.isPlaying) { try { FlameAudio.bgm.play('music/bg_music.mp3', volume: 0.3); } catch(e){} }
       oyunuSifirla(); 
   }
   
@@ -615,7 +610,6 @@ class _AyarlarOverlayState extends State<AyarlarOverlay> {
              const SizedBox(height: 40),
              SwitchListTile(title: const Text("Ses Efektleri", style: TextStyle(color: Colors.white)), value: widget.game.sesAcik, onChanged: (val) {
                setState(() { widget.game.sesAcik = val; });
-               if (!val) { FlameAudio.bgm.stop(); } else { try { FlameAudio.bgm.play('music/bg_music.mp3'); } catch(e){} }
              }),
              const SizedBox(height: 40),
              ElevatedButton(onPressed: () { widget.game.overlays.remove('Ayarlar'); widget.game.overlays.add('AnaMenu'); }, child: const Text("GERİ DÖN")),

@@ -32,5 +32,4 @@ flutter:
   # İŞTE BURASI ÇOK ÖNEMLİ (Hizalama Kritik)
   assets:
     - assets/images/
-    - assets/audio/music/
     - assets/audio/sfx/
