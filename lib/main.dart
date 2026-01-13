@@ -1,4 +1,7 @@
+import 'dart:convert'; // JSON işlemleri için
+import 'dart:ui' as ui; // Locale tespiti için
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle; // Dosya okuma için
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
@@ -21,6 +24,29 @@ void main() {
   );
 }
 
+// --- DİL YÖNETİCİSİ (JSON ASSET TEMELLİ) ---
+class Dil {
+  static Map<String, dynamic> _localizedValues = {};
+
+  static Future<void> yukle() async {
+    try {
+      String languageCode = ui.window.locale.languageCode;
+      // Sadece tr ve en desteği var, yoksa en yap
+      if (!['tr', 'en'].contains(languageCode)) {
+        languageCode = 'en';
+      }
+      String jsonString = await rootBundle.loadString('assets/translations/$languageCode.json');
+      _localizedValues = json.decode(jsonString);
+    } catch (e) {
+      print("Dil dosyası yükleme hatası: $e");
+    }
+  }
+
+  static String get(String key) {
+    return _localizedValues[key] ?? key;
+  }
+}
+
 // --- SPLASH SCREEN ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,22 +65,31 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _baslat() async {
-    setState(() { _status = "Reklam servisi hazırlanıyor..."; _progress = 0.2; });
+    // 1. Önce Dil Dosyasını Yükle
+    await Dil.yukle();
+    
+    // JSON'dan "baslatiliyor" verisini çek
+    if(mounted) setState(() { _status = Dil.get("baslatiliyor"); _progress = 0.1; });
+
+    // 2. Reklam SDK
+    if(mounted) setState(() { _status = Dil.get("reklam_hazir"); _progress = 0.3; });
     try {
       if (!kIsWeb) { await MobileAds.instance.initialize(); }
     } catch (e) { print("Reklam SDK hatası: $e"); }
 
-    setState(() { _status = "Sesler yükleniyor..."; _progress = 0.5; });
+    // 3. Sesler
+    if(mounted) setState(() { _status = Dil.get("sesler"); _progress = 0.5; });
     try {
       await FlameAudio.audioCache.loadAll([
         'sfx/move.mp3', 'sfx/drop.mp3', 'sfx/clear.mp3', 'sfx/gameover.mp3',
       ]);
     } catch (e) { print("Ses hatası: $e"); }
 
-    setState(() { _status = "Veriler yükleniyor..."; _progress = 0.8; });
+    // 4. Veriler
+    if(mounted) setState(() { _status = Dil.get("veriler"); _progress = 0.8; });
     await ScoreManager.yukle();
 
-    setState(() { _status = "Hazır!"; _progress = 1.0; });
+    if(mounted) setState(() { _status = Dil.get("hazir"); _progress = 1.0; });
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
@@ -196,6 +231,7 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   RewardedAd? _rewardedAd;
   bool reklamKullanildi = false; 
   bool reklamHazir = false;
+  bool _odulKazanildi = false; // REKLAM DÜZELTMESİ: Bayrak
   final String reklamBirimID = 'ca-app-pub-3940256099942544/5224354917';
 
   double suruklemeBirikimiX = 0;
@@ -203,8 +239,6 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   bool dropLock = false;
 
   final Paint slotPaint = Paint()..color = Tasarim.bosSlot..style = PaintingStyle.fill;
-  // Göz yoran glow efekti kaldırıldı
-
   final Random _rng = Random();
 
   @override
@@ -228,7 +262,8 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     add(skorYazisi);
 
     yuksekSkorYazisi = TextComponent(
-      text: 'Best: ${ScoreManager.highScore}',
+      // JSON'daki "rekor" anahtarını kullanır
+      text: '${Dil.get("rekor")}: ${ScoreManager.highScore}', 
       textRenderer: TextPaint(style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16)),
       position: Vector2(size.x / 2, 125), anchor: Anchor.topCenter, priority: 10,
     );
@@ -247,12 +282,33 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     else { overlays.add('PauseMenu'); isPaused = true; }
   }
 
+  // --- REKLAM YÖNETİMİ (CALLBACK DÜZELTİLDİ) ---
   void reklamYukle() {
     if (kIsWeb) return;
     RewardedAd.load(
       adUnitId: reklamBirimID, request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) { _rewardedAd = ad; reklamHazir = true; },
+        onAdLoaded: (ad) { 
+          _rewardedAd = ad; 
+          reklamHazir = true;
+          
+          _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              reklamHazir = false;
+              reklamYukle(); // Yeni reklam hazırla
+              
+              // KULLANICI PENCEREYİ KAPATINCA OYUNU BAŞLAT
+              if (_odulKazanildi) {
+                devamEt(); 
+              }
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              reklamYukle();
+            }
+          );
+        },
         onAdFailedToLoad: (error) { _rewardedAd = null; reklamHazir = false; },
       ),
     );
@@ -260,14 +316,19 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
 
   void reklamIzleVeDevamEt() {
     if (kIsWeb) { devamEt(); return; }
-    if (_rewardedAd != null) { _rewardedAd!.show(onUserEarnedReward: (adWithoutView, reward) { devamEt(); }); }
+    if (_rewardedAd != null) {
+      _odulKazanildi = false; // Bayrağı sıfırla
+      _rewardedAd!.show(onUserEarnedReward: (adWithoutView, reward) { 
+        // Sadece ödülü kazandığını işaretle, oyunu başlatma
+        _odulKazanildi = true; 
+      }); 
+    }
   }
 
   void devamEt() {
       altSatirlariTemizle(4);
       overlays.remove('GameOver');
-      isGameOver = false; isPaused = false; reklamKullanildi = true; reklamHazir = false;
-      reklamYukle();
+      isGameOver = false; isPaused = false; reklamKullanildi = true; 
       spawnOyuncu(); 
   }
 
@@ -307,7 +368,10 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     isGameOver = true; isPaused = true; 
     if (sesAcik) try { FlameAudio.play('sfx/gameover.mp3'); } catch(e){}
     ScoreManager.kaydet(skor);
-    ScoreManager.yukle().then((_) { yuksekSkorYazisi.text = 'Best: ${ScoreManager.highScore}'; });
+    ScoreManager.yukle().then((_) { 
+      // "rekor" anahtarı
+      yuksekSkorYazisi.text = '${Dil.get("rekor")}: ${ScoreManager.highScore}'; 
+    });
     overlays.add('GameOver'); 
   }
 
@@ -315,7 +379,8 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
     overlays.remove('GameOver'); overlays.remove('PauseMenu');
     children.whereType<Kare>().where((k) => k.tur != "hud").forEach((k) => k.removeFromParent());
     skor = 0; comboSayaci = 0; comboYazisi.text = ''; oyunHizi = 0.5;
-    skorYazisi.text = '$skor'; yuksekSkorYazisi.text = 'Best: ${ScoreManager.highScore}';
+    skorYazisi.text = '$skor'; 
+    yuksekSkorYazisi.text = '${Dil.get("rekor")}: ${ScoreManager.highScore}';
     isGameOver = false; isPaused = false; dropLock = false; reklamKullanildi = false;
     spawnOyuncu();
   }
@@ -344,9 +409,9 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
   }
 
   void yercekimiAdimi() {
-     var oyuncular = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
-     if (oyuncular.isEmpty) return;
-     Kare aktifKare = oyuncular.first;
+      var oyuncular = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
+      if (oyuncular.isEmpty) return;
+      Kare aktifKare = oyuncular.first;
       if (carpismaVarMi(aktifKare.position.x, aktifKare.position.y + gridSize)) { blokKatilastir(aktifKare); }
       else { aktifKare.position.y += gridSize; }
   }
@@ -427,7 +492,6 @@ class TimelessGame extends FlameGame with PanDetector, TapDetector {
         double x = gridOffsetX + i * gridSize;
         double y = gridStartY + j * gridSize;
         RRect rrect = RRect.fromRectAndRadius(Rect.fromLTWH(x + 4, y + 4, gridSize - 8, gridSize - 8), const Radius.circular(12.0));
-        // Göz yoran parlama efekti kaldırıldı. Sadece temiz slot çiziliyor.
         canvas.drawRRect(rrect, slotPaint);
       }
     }
@@ -527,9 +591,11 @@ class AnaMenuOverlay extends StatelessWidget {
                   child: const Text("TIMELESS\nCORE", textAlign: TextAlign.center, style: TextStyle(fontSize: 50, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
                 ),
                 const SizedBox(height: 50),
-                ElevatedButton.icon(onPressed: () => game.oyunuBaslat(), style: ElevatedButton.styleFrom(backgroundColor: Tasarim.playButton, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20)), icon: const Icon(Icons.play_arrow, size: 30), label: const Text("OYNA", style: TextStyle(fontSize: 24))),
+                // "basla" anahtarını kullanır
+                ElevatedButton.icon(onPressed: () => game.oyunuBaslat(), style: ElevatedButton.styleFrom(backgroundColor: Tasarim.playButton, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20)), icon: const Icon(Icons.play_arrow, size: 30), label: Text(Dil.get("basla"), style: const TextStyle(fontSize: 24))),
                 const SizedBox(height: 20),
-                ElevatedButton(onPressed: () { game.overlays.remove('AnaMenu'); game.overlays.add('Ayarlar'); }, child: const Text("AYARLAR")),
+                // "secenekler" anahtarını kullanır
+                ElevatedButton(onPressed: () { game.overlays.remove('AnaMenu'); game.overlays.add('Ayarlar'); }, child: Text(Dil.get("secenekler"))),
           ]),
         ),
       ),
@@ -547,11 +613,14 @@ class PauseMenuOverlay extends StatelessWidget {
       child: Center(
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-             const Text("DURAKLATILDI", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+             // "duraklatildi" anahtarı
+             Text(Dil.get("duraklatildi"), style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
              const SizedBox(height: 40),
-             ElevatedButton.icon(onPressed: () => game.togglePause(), style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)), icon: const Icon(Icons.play_arrow), label: const Text("DEVAM ET")),
+             // "devam_et" anahtarı
+             ElevatedButton.icon(onPressed: () => game.togglePause(), style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)), icon: const Icon(Icons.play_arrow), label: Text(Dil.get("devam_et"))),
              const SizedBox(height: 20),
-             ElevatedButton.icon(onPressed: () => game.anaMenuyeDon(), style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), icon: const Icon(Icons.home), label: const Text("ANA MENÜ")),
+             // "ana_menu" anahtarı
+             ElevatedButton.icon(onPressed: () => game.anaMenuyeDon(), style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), icon: const Icon(Icons.home), label: Text(Dil.get("ana_menu"))),
           ]),
         ),
       ),
@@ -569,15 +638,20 @@ class GameOverOverlay extends StatelessWidget {
       child: Center(
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text("OYUN BİTTİ", style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                Text("Skor: ${game.skor}", style: const TextStyle(color: Colors.white, fontSize: 24)),
+                // "oyun_bitti" anahtarı
+                Text(Dil.get("oyun_bitti"), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                // "skor" anahtarı
+                Text("${Dil.get("skor")}: ${game.skor}", style: const TextStyle(color: Colors.white, fontSize: 24)),
                 const SizedBox(height: 10),
-                Text("Rekor: ${ScoreManager.highScore}", style: const TextStyle(color: Colors.amber, fontSize: 18)),
+                // "rekor" anahtarı
+                Text("${Dil.get("rekor")}: ${ScoreManager.highScore}", style: const TextStyle(color: Colors.amber, fontSize: 18)),
                 const SizedBox(height: 30),
                 if (!game.reklamKullanildi && (game.reklamHazir || kIsWeb))
-                ElevatedButton.icon(onPressed: () => game.reklamIzleVeDevamEt(), style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)), icon: const Icon(Icons.video_library), label: const Text("İZLE VE DEVAM ET")),
+                // "izle_devam" anahtarı
+                ElevatedButton.icon(onPressed: () => game.reklamIzleVeDevamEt(), style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)), icon: const Icon(Icons.video_library), label: Text(Dil.get("izle_devam"))),
                 if (!game.reklamKullanildi && !game.reklamHazir && !kIsWeb)
-                const Padding(padding: EdgeInsets.all(8.0), child: Text("Reklam Yükleniyor...", style: TextStyle(color: Colors.white54))),
+                // "reklam_yukleniyor" anahtarı
+                Padding(padding: const EdgeInsets.all(8.0), child: Text(Dil.get("reklam_yukleniyor"), style: const TextStyle(color: Colors.white54))),
                 const SizedBox(height: 20),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     IconButton(icon: const Icon(Icons.home, size: 40, color: Colors.white), onPressed: () => game.anaMenuyeDon()),
@@ -606,13 +680,16 @@ class _AyarlarOverlayState extends State<AyarlarOverlay> {
       child: Center(
         child: SingleChildScrollView(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-             const Text("AYARLAR", style: TextStyle(color: Colors.white, fontSize: 30)),
+             // "secenekler" anahtarı
+             Text(Dil.get("secenekler"), style: const TextStyle(color: Colors.white, fontSize: 30)),
              const SizedBox(height: 40),
-             SwitchListTile(title: const Text("Ses Efektleri", style: TextStyle(color: Colors.white)), value: widget.game.sesAcik, onChanged: (val) {
+             // "ses_efektleri" anahtarı
+             SwitchListTile(title: Text(Dil.get("ses_efektleri"), style: const TextStyle(color: Colors.white)), value: widget.game.sesAcik, onChanged: (val) {
                setState(() { widget.game.sesAcik = val; });
              }),
              const SizedBox(height: 40),
-             ElevatedButton(onPressed: () { widget.game.overlays.remove('Ayarlar'); widget.game.overlays.add('AnaMenu'); }, child: const Text("GERİ DÖN")),
+             // "geri_don" anahtarı
+             ElevatedButton(onPressed: () { widget.game.overlays.remove('Ayarlar'); widget.game.overlays.add('AnaMenu'); }, child: Text(Dil.get("geri_don"))),
           ]),
         ),
       ),

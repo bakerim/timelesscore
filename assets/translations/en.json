@@ -1,12 +1,22 @@
 {
-    "basla": "PLAY",
-    "secenekler": "OPTIONS",
-    "oyun_bitti": "GAME OVER",
-    "skor": "Score",
-    "rekor": "Best",
-    "sonraki": "NEXT",
-    "tekrar_basla": "Tap to Restart",
-    "ses_efektleri": "Sound Effects",
-    "geri_don": "BACK",
-    "dil": "Language / Dil"
-  }
+  "basla": "START",
+  "secenekler": "OPTIONS",
+  "oyun_bitti": "GAME OVER",
+  "skor": "Score",
+  "rekor": "Best",
+  "sonraki": "NEXT",
+  "tekrar_basla": "Tap to Restart",
+  "ses_efektleri": "Sound Effects",
+  "geri_don": "BACK",
+  "dil": "Language",
+  "baslatiliyor": "Starting...",
+  "reklam_hazir": "Ad service preparing...",
+  "sesler": "Loading sounds...",
+  "veriler": "Loading data...",
+  "hazir": "Ready!",
+  "duraklatildi": "PAUSED",
+  "devam_et": "RESUME",
+  "ana_menu": "MAIN MENU",
+  "izle_devam": "WATCH TO CONTINUE",
+  "reklam_yukleniyor": "Loading Ad..."
+}
