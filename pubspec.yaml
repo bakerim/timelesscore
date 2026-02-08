@@ -1,7 +1,7 @@
 name: timeless_core
 description: "A new Flutter project."
 publish_to: 'none' 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -10,10 +10,17 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
+  
+  # Oyun Motoru & Ses
   flame: ^1.18.0
   flame_audio: ^2.1.8
-  google_mobile_ads: 4.0.0
-  shared_preferences: 2.2.3
+  
+  # Gelir Modelleri (Reklam & Satın Alma)
+  google_mobile_ads: ^7.0.0
+  in_app_purchase: ^3.2.0  # <-- YENİ EKLENEN
+  
+  # Veri Saklama
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
@@ -29,6 +36,7 @@ flutter:
     - assets/audio/sfx/
     - assets/translations/
 
+# İkon Ayarları
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
@@ -46,6 +54,8 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/images/icon.png"
+
+# Açılış Ekranı (Splash)
 flutter_native_splash:
   color: "#000000"
   image: assets/images/splash.jpg

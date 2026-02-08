@@ -4,7 +4,6 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -16,9 +15,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.movingpixel.timelesscore"
-    
     compileSdk = 36
-    buildToolsVersion = "36.0.0"
 
     ndkVersion = flutter.ndkVersion
 
@@ -31,30 +28,29 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-        }
-    }
-
     defaultConfig {
         applicationId = "com.movingpixel.timelesscore"
         minSdk = flutter.minSdkVersion
-        targetSdk = 36 
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+        release {
+            // Şimdilik imzalama configini kapattık ki hata vermesin.
+            // signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.multidex:multidex:2.0.1")
 }
