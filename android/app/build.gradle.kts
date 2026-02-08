@@ -17,6 +17,15 @@ android {
     namespace = "com.movingpixel.timelesscore"
     compileSdk = 36
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { rootProject.file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
+
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -39,8 +48,7 @@ android {
 
     buildTypes {
         release {
-            // Şimdilik imzalama configini kapattık ki hata vermesin.
-            // signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
         }
