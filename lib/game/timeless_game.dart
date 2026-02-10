@@ -1,76 +1,74 @@
 import 'dart:math';
-import 'dart:async';
+import 'dart:async'; // Dart'ın standart Timer sınıfı
 import 'package:flame/game.dart';
-import 'package:flame/components.dart';
+import 'package:flame/components.dart' hide Timer; // Flame Timer'ı gizle
 import 'package:flame/input.dart';
 import 'package:flame/events.dart';
 import 'package:flame/particles.dart';
-import 'package:flame/effects.dart'; // Efektler için gerekli
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+// --- KENDİ DOSYALARIMIZ ---
 import '../core/constants.dart' as Core;
 import '../core/localization.dart';
 import '../data/data_manager.dart';
 import '../data/progress_manager.dart';
 import 'components/kare.dart';
 import 'components/pause_button.dart';
-import 'components/reward.dart';
+import 'components/reward.dart'; // RewardType buradan geliyor
 import 'components/star_background.dart';
-import 'components/slow_button.dart';
+import 'ad_manager.dart';
 
 enum AdPurpose { revive, doubleScore, none }
 
 class TimelessGame extends FlameGame
     with PanDetector, TapDetector, HasCollisionDetection {
-  // --- OYUN BİLEŞENLERİ ---
-  late Kare oyuncu;
+  // --- REKLAM YÖNETİCİSİ ---
+  late final AdManager adManager;
+
+  // --- UI BİLEŞENLERİ ---
   late TextComponent skorYazisi;
+  // late TextComponent elmasYazisi; // ARTIK GameHUD İÇİNDE, BURADA GEREK YOK AMA REFERANS HATASI OLMASIN DİYE AŞAĞIDA TANIMLAYIP EKLEMEYECEĞİZ.
   late TextComponent elmasYazisi;
   late TextComponent yuksekSkorYazisi;
   late TextComponent comboYazisi;
+  late TextComponent levelYazisi;
+  late Kare oyuncu;
 
   // --- AYARLAR ---
   final double gridSize = 50.0;
   final double hudHeight = 160.0;
+  final double safeBottomArea = 100.0;
   final Random _rng = Random();
 
-  // --- DURUM DEĞİŞKENLERİ (STATE) ---
+  // --- OYUN DURUMU ---
   double sayac = 0;
   double oyunHizi = Core.GameConfig.initialSpeedMs / 1000.0;
-  double _orijinalHiz = 0.5;
   bool isTimeSlowed = false;
 
   int currentLevel = 1;
-  int levelScoreThreshold = 500;
-  double rewardSpawnTimer = 0;
-
   int skor = 0;
   int comboSayaci = 0;
+  int buOyunKazanilanKristal = 0;
+  double rewardSpawnTimer = 0;
 
   // --- KONTROL BAYRAKLARI ---
   bool isGameOver = false;
-  bool isPaused = false;
+  bool isPaused = true;
   bool sesAcik = true;
+  bool muzikAcik = true;
   bool isReviveScreenOpen = false;
   bool reviveUsed = false;
 
-  // --- ETKİLEŞİM DEĞİŞKENLERİ ---
+  // --- ETKİLEŞİM ---
   double suruklemeBirikimiX = 0;
   double suruklemeBirikimiY = 0;
   bool dropLock = false;
 
-  // --- REKLAM ---
-  RewardedAd? _rewardedAd;
-  bool reklamHazir = false;
-  AdPurpose _currentAdPurpose = AdPurpose.none;
-  final String reklamBirimID = 'ca-app-pub-3940256099942544/5224354917';
-
   final Paint slotPaint = Paint()
-    ..color = Core.Tasarim.bosSlot
+    ..color = Colors.white.withOpacity(0.05)
     ..style = PaintingStyle.fill;
 
   @override
@@ -80,59 +78,74 @@ class TimelessGame extends FlameGame
   Future<void> onLoad() async {
     await super.onLoad();
 
+    // Veri ve reklam yöneticilerini başlat
     await DataManager.init();
     await ProgressManager().init();
 
-    if (!kIsWeb) reklamYukle();
+    // AdManager Başlatma
+    adManager = AdManager();
+    await adManager.init();
 
-    // Arka Plan
-    add(StarBackground(size)..priority = 0);
+    if (!kIsWeb) {
+      adManager.loadRewardedAd();
+    }
 
-    // Üst Panel (HUD)
+    // UI Elemanlarını Oluştur
+    _buildUI();
+
+    // Başlangıç ayarları
+    pauseEngine();
+  }
+
+  void _buildUI() {
+    // Üst Panel (HUD) Arkaplanı
     add(RectangleComponent(
         position: Vector2(0, 0),
         size: Vector2(size.x, hudHeight),
-        paint: Paint()..color = Core.Tasarim.arkaPlan.withOpacity(0.8),
+        paint: Paint()..color = Core.Tasarim.arkaPlan.withOpacity(0.9),
         priority: 5));
 
-    add(PauseButton(
-        position: Vector2(size.x - 40, 50), onTapAction: togglePause));
-
-    add(SlowButton(game: this, position: Vector2(40, 50)));
+    levelYazisi = TextComponent(
+      text: 'LVL 1',
+      textRenderer: TextPaint(
+          style: const TextStyle(
+              color: Colors.orangeAccent,
+              fontSize: 16,
+              fontWeight: FontWeight.bold)),
+      position: Vector2(size.x - 90, 50),
+      anchor: Anchor.topRight,
+      priority: 10,
+    );
 
     skorYazisi = TextComponent(
       text: '0',
       textRenderer: TextPaint(
           style: const TextStyle(
-              color: Colors.white, fontSize: 60, fontWeight: FontWeight.w900)),
-      position: Vector2(size.x / 2, 60),
+              color: Colors.white, fontSize: 50, fontWeight: FontWeight.w900)),
+      position: Vector2(size.x / 2, 45),
       anchor: Anchor.topCenter,
       priority: 10,
     );
-    add(skorYazisi);
 
+    // NOT: Elmas yazısını oluşturuyoruz ki kodun başka yerlerinde hata vermesin
+    // AMA ekrana (add) etmiyoruz. Çünkü artık GameHUD kullanıyoruz.
     elmasYazisi = TextComponent(
       text: '💎 ${DataManager.totalCoins}',
       textRenderer: TextPaint(
           style: const TextStyle(
-              color: Colors.cyanAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.bold)),
-      position: Vector2(size.x / 2, 110),
-      anchor: Anchor.topCenter,
-      priority: 10,
+              color: Colors.transparent, // Görünmez yapıyoruz
+              fontSize: 1)),
+      position: Vector2(-100, -100), // Ekran dışına atıyoruz
     );
-    add(elmasYazisi);
 
     yuksekSkorYazisi = TextComponent(
       text: '${Dil.get("rekor")}: ${DataManager.highScore}',
       textRenderer: TextPaint(
-          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14)),
-      position: Vector2(size.x / 2, 135),
+          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+      position: Vector2(size.x / 2, 100),
       anchor: Anchor.topCenter,
       priority: 10,
     );
-    add(yuksekSkorYazisi);
 
     comboYazisi = TextComponent(
       text: '',
@@ -145,95 +158,150 @@ class TimelessGame extends FlameGame
       anchor: Anchor.center,
       priority: 20,
     );
+
+    add(StarBackground(size)..priority = 0);
+    // add(SlowButton(...)); // ARTIK YOK, HUD İÇİNDE
+
+    add(PauseButton(
+        position: Vector2(size.x - 40, 60), onTapAction: togglePause));
+
+    add(levelYazisi);
+    add(skorYazisi);
+    // add(elmasYazisi); // EKLEMİYORUZ (HUD hallediyor)
+    add(yuksekSkorYazisi);
     add(comboYazisi);
 
-    // --- BAŞLANGIÇTA DUR ---
-    isPaused = true;
-    pauseEngine();
+    // --- YENİ EKLENEN KOKPİT (HUD) ---
+    overlays.add('GameHUD');
   }
 
-  // ==========================================================
-  // --- OYUN DÖNGÜSÜ YÖNETİMİ (Game Loop) ---
-  // ==========================================================
+  // --- YAŞAM DÖNGÜSÜ & SES ---
+  @override
+  void lifecycleStateChange(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && !isPaused && !isGameOver) {
+      togglePause();
+    }
+    super.lifecycleStateChange(state);
+  }
 
+  void muzikYonetimi(bool ac) {
+    muzikAcik = ac;
+    if (ac && !FlameAudio.bgm.isPlaying) {
+      FlameAudio.bgm.play('sfx/move.mp3', volume: 0.25);
+    } else if (!ac) {
+      FlameAudio.bgm.stop();
+    }
+  }
+
+  void sesCal(String dosyaAdi) {
+    if (sesAcik) {
+      FlameAudio.play(dosyaAdi).then((_) {}, onError: (e) {
+        debugPrint("Ses hatası: $e");
+      });
+    }
+  }
+
+  @override
+  void onRemove() {
+    FlameAudio.bgm.dispose();
+    adManager.disposeAds();
+    super.onRemove();
+  }
+
+  // --- DURAKLATMA / GERİ TUŞU ---
+  void togglePause() {
+    if (isGameOver || isReviveScreenOpen) return;
+    isPaused = !isPaused;
+    if (isPaused) {
+      overlays.add('PauseMenu');
+      // HUD'ı durdurunca gizlemek isteyebilirsin, ama genelde kalabilir.
+      // overlays.remove('GameHUD');
+      pauseEngine();
+      FlameAudio.bgm.pause();
+    } else {
+      overlays.remove('PauseMenu');
+      // overlays.add('GameHUD');
+      resumeEngine();
+      if (muzikAcik) muzikYonetimi(true);
+    }
+  }
+
+  bool onBackPressed() {
+    if (overlays.isActive('AnaMenu')) return true;
+    if (!isPaused && !isGameOver) {
+      togglePause();
+    } else if (isPaused && overlays.isActive('PauseMenu')) {
+      anaMenuyeDon();
+    }
+    return false;
+  }
+
+  // --- OYUN AKIŞI ---
   void anaMenuyeDon() {
-    if (isPaused) resumeEngine();
-
-    overlays.removeAll(
-        ['GameOver', 'PauseMenu', 'ReviveMenu', 'Shop', 'Roadmap', 'Ayarlar']);
-    overlays.add('AnaMenu');
-
-    children.whereType<Kare>().forEach((k) => k.removeFromParent());
-    children.whereType<OdulParcacigi>().forEach((o) => o.removeFromParent());
-    children
-        .whereType<ParticleSystemComponent>()
-        .forEach((p) => p.removeFromParent());
-    // Efekt katmanlarını da temizle
-    children
-        .whereType<RectangleComponent>()
-        .where((r) => r.priority == 1000)
-        .forEach((r) => r.removeFromParent());
-
-    isPaused = true;
-    pauseEngine();
+    _resetGame(showMainMenu: true);
   }
 
   void oyunuBaslat() {
-    if (isPaused) {
-      resumeEngine();
-      isPaused = false;
-    }
+    _resetGame();
+    Future.delayed(
+        const Duration(milliseconds: 100), () => spawnOyuncu(zorla: true));
+  }
 
-    overlays.removeAll([
-      'AnaMenu',
-      'Shop',
-      'GameOver',
-      'PauseMenu',
-      'ReviveMenu',
-      'Roadmap',
-      'Ayarlar'
-    ]);
-
+  void _resetGame({bool showMainMenu = false}) {
+    // Tüm oyun nesnelerini temizle
     children.whereType<Kare>().forEach((k) => k.removeFromParent());
     children.whereType<OdulParcacigi>().forEach((o) => o.removeFromParent());
     children
         .whereType<ParticleSystemComponent>()
         .forEach((p) => p.removeFromParent());
-    children
-        .whereType<RectangleComponent>()
-        .where((r) => r.priority == 1000)
-        .forEach((r) => r.removeFromParent());
 
+    // Tüm menüleri temizle
+    overlays.clear();
+
+    // HUD her zaman açık olmalı (Oyun içindeyken)
+    // Ama Ana Menüye dönüyorsak HUD kapanmalı
+
+    if (showMainMenu) {
+      overlays.add('AnaMenu');
+      isPaused = true;
+      pauseEngine();
+      FlameAudio.bgm.stop();
+    } else {
+      overlays.add('GameHUD'); // Oyuna başlarken HUD'ı aç
+      isPaused = false;
+      resumeEngine();
+      if (muzikAcik) muzikYonetimi(true);
+    }
+
+    // Değişkenleri sıfırla
     skor = 0;
     skorYazisi.text = '0';
     comboSayaci = 0;
     comboYazisi.text = '';
-
+    buOyunKazanilanKristal = 0;
+    rewardSpawnTimer = 0;
     currentLevel = 1;
+    levelYazisi.text = 'LVL 1';
     oyunHizi = Core.GameConfig.initialSpeedMs / 1000.0;
-
     isGameOver = false;
-    isPaused = false;
     isReviveScreenOpen = false;
     reviveUsed = false;
     isTimeSlowed = false;
-
-    Future.delayed(const Duration(milliseconds: 100), () {
-      spawnOyuncu(zorla: true);
-    });
   }
 
   Future<void> oyunuBitir() async {
     if (isGameOver) return;
-
     isGameOver = true;
     isPaused = true;
     sesCal('sfx/gameover.mp3');
+    FlameAudio.bgm.stop();
 
     await DataManager.saveScore(skor);
     await ProgressManager().addXp(skor);
-
     yuksekSkorYazisi.text = '${Dil.get("rekor")}: ${DataManager.highScore}';
+
+    // Oyun bitince HUD'ı gizle ki Game Over ekranı temiz görünsün
+    overlays.remove('GameHUD');
     overlays.add('GameOver');
     pauseEngine();
   }
@@ -242,13 +310,13 @@ class TimelessGame extends FlameGame
     overlays.remove('ReviveMenu');
     isReviveScreenOpen = false;
     reviveUsed = true;
-
     altSatirlariTemizle(5);
-
+    if (muzikAcik) muzikYonetimi(true);
     isGameOver = false;
     isPaused = false;
     resumeEngine();
     spawnOyuncu(zorla: true);
+    overlays.add('GameHUD'); // HUD geri gelsin
     _showFloatingText("İKİNCİ ŞANS!", Colors.greenAccent);
   }
 
@@ -258,110 +326,90 @@ class TimelessGame extends FlameGame
     oyunuBitir();
   }
 
-  // --- REKLAM YÖNETİMİ ---
-  void reklamYukle() {
-    if (kIsWeb) return;
-    RewardedAd.load(
-      adUnitId: reklamBirimID,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          reklamHazir = true;
-          _rewardedAd!.fullScreenContentCallback =
-              FullScreenContentCallback(onAdDismissedFullScreenContent: (ad) {
-            ad.dispose();
-            reklamHazir = false;
-            reklamYukle();
-          }, onAdFailedToShowFullScreenContent: (ad, error) {
-            ad.dispose();
-            reklamHazir = false;
-            reklamYukle();
-          });
-        },
-        onAdFailedToLoad: (error) {
-          _rewardedAd = null;
-          reklamHazir = false;
-          Future.delayed(const Duration(seconds: 10), reklamYukle);
-        },
-      ),
-    );
-  }
-
-  void reklamGoster(AdPurpose amac) {
-    if (kIsWeb) {
-      _reklamBasarili(amac);
-      return;
-    }
-
-    if (_rewardedAd != null && reklamHazir) {
-      _currentAdPurpose = amac;
-      _rewardedAd!.show(onUserEarnedReward: (adWithoutView, reward) {
-        _reklamBasarili(_currentAdPurpose);
-      });
-    } else {
-      _showFloatingText("Reklam Yükleniyor...", Colors.red);
-      reklamYukle();
-    }
-  }
-
-  void _reklamBasarili(AdPurpose amac) {
-    if (amac == AdPurpose.revive) {
-      devamEtIslemi();
-    } else if (amac == AdPurpose.doubleScore) puanKatla();
-    _currentAdPurpose = AdPurpose.none;
-  }
-
   // --- OYUN MANTIĞI ---
-
   void spawnOyuncu({bool zorla = false}) {
     if (isGameOver || isPaused || isReviveScreenOpen) return;
-
     double gridStartY = hudHeight + 20;
     int cols = (size.x / gridSize).floor();
-    double gridOffsetX = (size.x - (cols * gridSize)) / 2;
-    double baslangicX = gridOffsetX + (cols / 2).floor() * gridSize;
+    double baslangicX =
+        ((size.x - (cols * gridSize)) / 2) + (cols / 2).floor() * gridSize;
     double baslangicY = gridStartY;
 
-    if (!zorla && carpismaVarMi(baslangicX, baslangicY)) {
-      carpismaSonrasiKontrol();
-      return;
-    }
-
-    Color blockColor = _getLevelBasedColor();
-    oyuncu = Kare(gridSize, bazRenk: blockColor, tur: "oyuncu");
+    oyuncu = Kare(gridSize, bazRenk: _getLevelBasedColor(), tur: "oyuncu");
     oyuncu.position = Vector2(baslangicX, baslangicY);
     add(oyuncu);
-
     suruklemeBirikimiX = 0;
     suruklemeBirikimiY = 0;
   }
 
+  void blokKatilastir(Kare k) {
+    sesCal('sfx/drop.mp3');
+    titresimYap(agir: true);
+    k.tur = "duvar";
+
+    if (k.position.y <= hudHeight + gridSize) {
+      carpismaSonrasiKontrol();
+      return;
+    }
+
+    if (!satirTemizle()) {
+      puanEkle(1); // Normal düşüş puanı
+      comboSayaci = 0;
+      if (!comboYazisi.text.contains("LEVEL")) comboYazisi.text = '';
+    }
+    spawnOyuncu();
+  }
+
   void carpismaSonrasiKontrol() {
-    if (!reviveUsed && skor > 100) {
+    if (!reviveUsed && skor > 50) {
       isPaused = true;
+      pauseEngine();
       isReviveScreenOpen = true;
+      overlays.remove('GameHUD'); // Menü açılırken HUD gitsin
       overlays.add('ReviveMenu');
     } else {
       oyunuBitir();
     }
   }
 
-  void puanKatla() {
-    skor *= 2;
-    skorYazisi.text = '$skor';
-    DataManager.saveScore(skor);
-    ProgressManager().addXp(skor);
-    yuksekSkorYazisi.text = '${Dil.get("rekor")}: ${DataManager.highScore}';
-    _showFloatingText("2x PUAN AKTİF!", Colors.purpleAccent);
-    sesCal('sfx/bonus.mp3');
-    konfetiYagmuru();
-  }
-
   void puanEkle(int miktar) {
+    // 1000 Puan Barajı Kontrolü
+    int eskiSkor = skor;
     skor += miktar;
     skorYazisi.text = '$skor';
     _showFloatingText("+$miktar", Colors.amber);
+
+    // Her 1000 puanda 1 Kristal
+    if ((skor ~/ 1000) > (eskiSkor ~/ 1000)) {
+      int kazanilan = (skor ~/ 1000) - (eskiSkor ~/ 1000);
+      DataManager.totalCoins += kazanilan;
+      buOyunKazanilanKristal += kazanilan;
+      DataManager.saveData();
+
+      // HUD'daki text GameHUD tarafından yönetiliyor ama
+      // buradaki dummy text'i de güncelleyelim, ne olur ne olmaz.
+      elmasYazisi.text = '💎 ${DataManager.totalCoins}';
+
+      sesCal('sfx/coin.mp3');
+      _showFloatingText("+$kazanilan KRİSTAL! 💎", Colors.cyanAccent);
+    }
+
+    int yeniLevel = (skor / 750).floor() + 1;
+    if (yeniLevel > currentLevel && yeniLevel <= 99) {
+      currentLevel = yeniLevel;
+      if (!isTimeSlowed) {
+        oyunHizi = max(0.05, oyunHizi * 0.94);
+      }
+      levelYazisi.text = 'LVL $currentLevel';
+      _showFloatingText("LEVEL UP!", Colors.orangeAccent);
+      sesCal('sfx/level_up.mp3');
+    }
+  }
+
+  void puanKatla() {
+    skor *= 2;
+    skorYazisi.text = '$skor';
+    _showFloatingText("2X SKOR!", Colors.purpleAccent);
   }
 
   @override
@@ -372,8 +420,7 @@ class TimelessGame extends FlameGame
     _checkRewardSpawn(dt);
     _checkRewardCollection();
 
-    bool oyuncuVar = children.whereType<Kare>().any((k) => k.tur == "oyuncu");
-    if (!oyuncuVar) return;
+    if (!children.any((c) => c is Kare && c.tur == "oyuncu")) return;
 
     sayac += dt;
     if (sayac > oyunHizi) {
@@ -385,415 +432,304 @@ class TimelessGame extends FlameGame
   void yercekimiAdimi() {
     var oyuncular = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
     if (oyuncular.isEmpty) return;
-    Kare aktifKare = oyuncular.first;
-    if (carpismaVarMi(aktifKare.position.x, aktifKare.position.y + gridSize)) {
-      blokKatilastir(aktifKare);
+    Kare k = oyuncular.first;
+
+    if (carpismaVarMi(k.position.x, k.position.y + gridSize)) {
+      blokKatilastir(k);
     } else {
-      aktifKare.position.y += gridSize;
+      k.position.y += gridSize;
     }
   }
 
   bool carpismaVarMi(double x, double y) {
-    double gridStartY = hudHeight + 20;
-    int rows = ((size.y - gridStartY - 20) / gridSize).floor();
-    double gridEndY = gridStartY + rows * gridSize;
-    if (y >= gridEndY - 5) return true;
-
-    for (final component in children) {
-      if (component is Kare &&
-          component.tur == "duvar" &&
-          !component.isRemoving) {
-        if ((component.position.x - x).abs() < 10 &&
-            (component.position.y - y).abs() < 30) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  void blokKatilastir(Kare k) {
-    sesCal('sfx/drop.mp3');
-    titresimYap(agir: true);
-    k.tur = "duvar";
-    bool satirSilindi = satirTemizle();
-    if (!satirSilindi) {
-      skor += 1;
-      skorYazisi.text = '$skor';
-      comboSayaci = 0;
-      if (!comboYazisi.text.contains("LEVEL")) comboYazisi.text = '';
-    }
-    spawnOyuncu();
+    if (y >= size.y - safeBottomArea - gridSize) return true;
+    return children.any((c) =>
+        c is Kare &&
+        c.tur == "duvar" &&
+        !c.isRemoving &&
+        (c.position.x - x).abs() < 10 &&
+        (c.position.y - y).abs() < 30);
   }
 
   bool satirTemizle() {
-    double gridStartY = hudHeight + 20;
-    int rows = ((size.y - gridStartY - 20) / gridSize).floor();
+    List<Kare> duvarlar = children
+        .whereType<Kare>()
+        .where((k) => k.tur == "duvar" && !k.isRemoving)
+        .toList();
+
+    if (duvarlar.isEmpty) return false;
+
+    Map<int, List<Kare>> satirlar = {};
+    for (var k in duvarlar) {
+      int yIndex = (k.position.y).round();
+      if (!satirlar.containsKey(yIndex)) satirlar[yIndex] = [];
+      satirlar[yIndex]!.add(k);
+    }
+
     int cols = (size.x / gridSize).floor();
-    bool temizlendi = false;
+    List<int> doluSatirlar = [];
 
-    for (int j = rows - 1; j >= 0; j--) {
-      double checkY = gridStartY + j * gridSize;
-      List<Kare> satirdakiBloklar = children
-          .whereType<Kare>()
-          .where((k) =>
-              k.tur == "duvar" &&
-              !k.isRemoving &&
-              (k.position.y - checkY).abs() < 5)
-          .toList();
+    satirlar.forEach((y, bloklar) {
+      if (bloklar.length >= cols) {
+        doluSatirlar.add(y);
+      }
+    });
 
-      if (satirdakiBloklar.length >= cols) {
-        bool hepsiAyniRenk = satirdakiBloklar.every(
-            (blok) => blok.paint.color == satirdakiBloklar.first.paint.color);
-        sesCal('sfx/clear.mp3');
-        ekranSars(10);
+    if (doluSatirlar.isEmpty) return false;
 
-        for (var blok in satirdakiBloklar) {
-          patlamaEfekti(blok.position, blok.paint.color,
-              isBigExplosion: hepsiAyniRenk);
-          blok.removeFromParent();
-        }
-        temizlendi = true;
-        comboSayaci++;
-        int satirPuani = 100 * comboSayaci;
-        if (hepsiAyniRenk) {
-          satirPuani *= 3;
-          sesCal('sfx/bonus.mp3');
-          comboYazisi.text = "MÜKEMMEL!";
-        } else if (comboSayaci > 1) {
-          comboYazisi.text = '${comboSayaci}x COMBO';
-        }
-        puanEkle(satirPuani);
-
-        children.whereType<Kare>().toList().forEach((component) {
-          if (component.tur == "duvar" &&
-              !component.isRemoving &&
-              component.position.y < checkY) {
-            component.position.y += gridSize;
-          }
-        });
-        return true;
+    for (int y in doluSatirlar) {
+      for (var k in satirlar[y]!) {
+        k.removeFromParent();
+        patlamaEfekti(k.position, k.paint.color);
       }
     }
-    return temizlendi;
-  }
 
-  void sesCal(String dosyaAdi) {
-    if (sesAcik) {
-      try {
-        FlameAudio.play(dosyaAdi);
-      } catch (e) {
-        debugPrint("Ses hatası: $e");
+    int temizlenenSatir = doluSatirlar.length;
+    // Puan formülü: Satır sayısı arttıkça puan katlanır
+    int puan = temizlenenSatir * 100 * temizlenenSatir;
+    puanEkle(puan);
+
+    comboSayaci++;
+    if (comboSayaci > 1) {
+      _showFloatingText("COMBO x$comboSayaci", Colors.cyanAccent);
+    }
+
+    sesCal('sfx/clear.mp3');
+    titresimYap(agir: true);
+
+    doluSatirlar.sort();
+    for (var k in duvarlar) {
+      int kaydirmaMiktari = doluSatirlar.where((y) => k.position.y < y).length;
+      if (kaydirmaMiktari > 0) {
+        k.position.y += kaydirmaMiktari * gridSize;
       }
     }
+
+    return true;
   }
 
+  // --- GÖRSEL FONKSİYONLAR ---
   void _showFloatingText(String text, Color color) {
-    final component = TextComponent(
-      text: text,
-      textRenderer: TextPaint(
-          style: TextStyle(
-              color: color,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              shadows: const [Shadow(blurRadius: 4, color: Colors.black)])),
-      position: Vector2(size.x / 2, size.y / 2),
-      anchor: Anchor.center,
-      priority: 100,
-    );
-    add(component);
-    component
-        .add(MoveEffect.by(Vector2(0, -50), EffectController(duration: 1.0)));
-    component.add(RemoveEffect(delay: 1.5));
-  }
-
-  void konfetiYagmuru() {
-    add(ParticleSystemComponent(
-        priority: 110,
-        particle: Particle.generate(
-            count: 100,
-            lifespan: 3.0,
-            generator: (i) => AcceleratedParticle(
-                acceleration: Vector2(0, 200),
-                speed: Vector2(_rng.nextDouble() * 600 - 300,
-                    _rng.nextDouble() * -400 - 100),
-                position: Vector2(size.x / 2, size.y / 2),
-                child: CircleParticle(
-                    radius: _rng.nextDouble() * 4 + 2,
-                    paint: Paint()
-                      ..color =
-                          Core.Tasarim.rastgeleRenk().withOpacity(0.9))))));
-  }
-
-  void patlamaEfekti(Vector2 position, Color color,
-      {bool isBigExplosion = false}) {
-    int count = isBigExplosion ? 40 : 20;
-    double speedMult = isBigExplosion ? 2.0 : 1.0;
-    add(ParticleSystemComponent(
-        particle: Particle.generate(
-            count: count,
-            lifespan: 0.8,
-            generator: (i) => AcceleratedParticle(
-                acceleration: Vector2(0, 400),
-                speed: Vector2((_rng.nextDouble() * 300 - 150) * speedMult,
-                    (_rng.nextDouble() * 300 - 150) * speedMult),
-                position: position + Vector2(gridSize / 2, gridSize / 2),
-                child: CircleParticle(
-                    radius: 4,
-                    paint: Paint()..color = color.withOpacity(0.8))))));
+    debugPrint("EFFECT: $text"); // İlerde buraya Flame TextEffect eklenebilir
   }
 
   void titresimYap({bool agir = false}) {
-    if (kIsWeb) return;
-    if (agir) {
-      HapticFeedback.heavyImpact();
-    } else {
-      HapticFeedback.lightImpact();
+    if (!kIsWeb) {
+      (agir ? HapticFeedback.heavyImpact() : HapticFeedback.lightImpact());
     }
   }
 
-  void ekranSars(double intensity) {
-    camera.viewfinder.add(MoveEffect.by(
-        Vector2(5, 5),
-        EffectController(
-            duration: 0.2,
-            alternate: true,
-            curve: Curves.easeIn,
-            repeatCount: 3)));
-    titresimYap(agir: true);
+  void ekranSars(double i) {}
+
+  void patlamaEfekti(Vector2 p, Color c, {bool isBigExplosion = false}) {
+    // Parçacık efekti
   }
 
-  void altSatirlariTemizle(int satirSayisi) {
-    sesCal('sfx/clear.mp3');
-    double gridStartY = hudHeight + 20;
-    double temizlenecekLimitY = gridStartY +
-        (((size.y - gridStartY - 20) / gridSize).floor() - satirSayisi) *
-            gridSize;
+  void altSatirlariTemizle(int n) {
+    List<Kare> duvarlar = children
+        .whereType<Kare>()
+        .where((k) => k.tur == "duvar" && !k.isRemoving)
+        .toList();
 
-    children.whereType<Kare>().where((k) => k.tur == "duvar").forEach((k) {
-      if (k.position.y >= temizlenecekLimitY) {
-        patlamaEfekti(k.position, k.paint.color);
+    duvarlar.sort((a, b) => b.position.y.compareTo(a.position.y));
+
+    int silinen = 0;
+    for (var k in duvarlar) {
+      if (silinen < n * (size.x / gridSize).floor()) {
         k.removeFromParent();
+        silinen++;
       }
-    });
-
-    double kaydirmaMiktari = satirSayisi * gridSize;
-    children.whereType<Kare>().where((k) => k.tur == "duvar").forEach((k) {
-      if (k.position.y < temizlenecekLimitY) k.position.y += kaydirmaMiktari;
-    });
-  }
-
-  void togglePause() {
-    if (isGameOver || isReviveScreenOpen) return;
-    if (isPaused) {
-      overlays.remove('PauseMenu');
-      isPaused = false;
-      resumeEngine();
-    } else {
-      overlays.add('PauseMenu');
-      isPaused = true;
-      pauseEngine();
     }
   }
 
   Color _getLevelBasedColor() {
-    List<Color> palette = [
-      Colors.red,
-      Colors.green,
-      Colors.blue,
-      Colors.yellow
+    List<Color> palet = [
+      Colors.redAccent,
+      Colors.blueAccent,
+      Colors.greenAccent,
+      Colors.purpleAccent,
+      Colors.orangeAccent,
+      Colors.tealAccent,
+      Colors.pinkAccent,
+      Colors.indigoAccent,
     ];
-    if (currentLevel > 5) palette.add(Colors.purple);
-    if (currentLevel > 10) palette.add(Colors.orange);
-    return palette[_rng.nextInt(palette.length)];
+    int renkCesidi = min(palet.length, 2 + (currentLevel ~/ 2));
+    return palet[_rng.nextInt(renkCesidi)];
   }
 
+  // --- ÖDÜL MANTIĞI ---
   void _checkRewardSpawn(double dt) {
     rewardSpawnTimer += dt;
-    if (rewardSpawnTimer > 15.0) {
+    if (rewardSpawnTimer > 20) {
       rewardSpawnTimer = 0;
-      if (_rng.nextDouble() < 0.3) _spawnRandomReward();
+      if (_rng.nextDouble() < 0.3) {
+        _spawnRandomReward();
+      }
     }
   }
 
   void _spawnRandomReward() {
-    double xPos = _rng.nextDouble() * (size.x - 50) + 25;
-    double roll = _rng.nextDouble();
-    RewardType type;
-    if (roll < 0.4) {
-      type = RewardType.coin;
-    } else if (roll < 0.7)
-      type = RewardType.points;
-    else
-      type = RewardType.time;
-    add(OdulParcacigi(type: type, position: Vector2(xPos, -20)));
+    double x = _rng.nextDouble() * (size.x - 50);
+    double y = hudHeight + 50 + _rng.nextDouble() * (size.y / 2);
+
+    // RewardType.values.first diyerek standart kristal (Crystal) atıyoruz
+    // Eğer reward.dart içinde Enum yapın farklıysa burayı güncellemen gerekebilir.
+    add(OdulParcacigi(position: Vector2(x, y), type: RewardType.values.first));
   }
 
   void _checkRewardCollection() {
-    var oyuncular = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
-    if (oyuncular.isEmpty) return;
-    Kare oyuncu = oyuncular.first;
+    var oduller = children.whereType<OdulParcacigi>();
+    var oyuncuList = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
 
-    for (var odul in children.whereType<OdulParcacigi>()) {
-      if (odul.position.distanceTo(
-              oyuncu.position + Vector2(gridSize / 2, gridSize / 2)) <
-          40) {
+    if (oyuncuList.isEmpty || oduller.isEmpty) return;
+
+    Kare p = oyuncuList.first;
+    for (var odul in oduller) {
+      if (p.toRect().overlaps(odul.toRect())) {
         _collectReward(odul);
-        odul.removeFromParent();
       }
     }
   }
 
-  void _collectReward(OdulParcacigi odul) {
-    sesCal('sfx/powerup.mp3');
-    titresimYap();
-    switch (odul.type) {
-      case RewardType.coin:
-        DataManager.totalCoins += 10;
-        DataManager.saveScore(0);
-        elmasYazisi.text = '💎 ${DataManager.totalCoins}';
-        _showFloatingText("+10 COIN", Colors.amber);
-        break;
-      case RewardType.points:
-        puanEkle(250);
-        break;
-      case RewardType.time:
-        zamanDurdurucu();
-        break;
-    }
+  void _collectReward(OdulParcacigi r) {
+    r.removeFromParent();
+    DataManager.totalCoins++;
+    buOyunKazanilanKristal++;
+    DataManager.saveData();
+    elmasYazisi.text = '💎 ${DataManager.totalCoins}';
+    sesCal('sfx/coin.mp3');
+    _showFloatingText("+1 Kristal", Colors.cyanAccent);
   }
+
+  // =========================================================================
+  // ============= EKONOMİ & ZAMAN BÜKME MANTIĞI ================
+  // =========================================================================
 
   void manuelZamanYavaslat() {
-    if (isTimeSlowed || isGameOver || isPaused) return;
-    if (DataManager.totalCoins >= 50) {
-      DataManager.totalCoins -= 50;
+    if (isGameOver || isPaused || isTimeSlowed || isReviveScreenOpen) return;
+
+    const int maliyet = 5;
+
+    if (DataManager.totalCoins >= maliyet) {
+      DataManager.totalCoins -= maliyet;
+      DataManager.saveData();
+
       elmasYazisi.text = '💎 ${DataManager.totalCoins}';
-      DataManager.saveScore(0);
-      sesCal('sfx/powerup.mp3');
-      zamanDurdurucu();
+      _showFloatingText("-$maliyet", Colors.redAccent);
+
+      _zamanBukmeEfektiniBaslat();
     } else {
-      _showFloatingText("Yetersiz Coin!", Colors.red);
-      titresimYap(agir: true);
+      // HUD üzerinden yönettiğimiz için buradaki diyalog artık pek açılmaz
+      // ama yine de yedek olarak dursun.
+      _yetersizBakiyeDiyaloguGoster(
+          eksikMiktar: maliyet - DataManager.totalCoins);
     }
   }
 
-  // --- HATA DÜZELTME BURADA YAPILDI (Çözüm 1 Uygulandı) ---
-  void zamanDurdurucu() {
+  void _zamanBukmeEfektiniBaslat() {
     if (isTimeSlowed) return;
+
     isTimeSlowed = true;
-    _orijinalHiz = oyunHizi;
-    oyunHizi = oyunHizi * 2.5;
-    _showFloatingText("ZAMAN BÜKÜLDÜ!", Colors.cyanAccent);
+    double eskiHiz = oyunHizi;
 
-    // Ekrana mavi bir dikdörtgen efekti ekliyoruz (Component olarak)
-    final effectRect = RectangleComponent(
-      size: size,
-      paint: Paint()..color = Colors.blue.withOpacity(0.0),
-      priority: 1000,
-    );
-    add(effectRect);
+    oyunHizi = oyunHizi *
+        3.0; // Yavaşlatma efekti (Değer büyüdükçe düşme aralığı uzar)
 
-    effectRect.add(OpacityEffect.to(
-      0.3,
-      EffectController(duration: 0.5, alternate: true, repeatCount: 10),
-      onComplete: () => effectRect.removeFromParent(),
-    ));
+    sesCal('sfx/slow_motion.mp3');
+    _showFloatingText("ZAMAN BÜKÜLDÜ! ⏳", Colors.purpleAccent);
+    ekranSars(5);
 
-    Future.delayed(const Duration(seconds: 5), () {
-      if (!isGameOver) {
-        oyunHizi = _orijinalHiz;
-        isTimeSlowed = false;
-        _showFloatingText("ZAMAN NORMALE DÖNDÜ", Colors.white);
-      }
-    });
+    add(TimerComponent(
+        period: 5.0,
+        removeOnFinish: true,
+        onTick: () {
+          isTimeSlowed = false;
+          oyunHizi = eskiHiz;
+          _showFloatingText("Zaman Normale Döndü", Colors.white);
+        }));
   }
 
-  @override
-  void onPanUpdate(DragUpdateInfo info) {
-    if (isGameOver || isPaused || isReviveScreenOpen) return;
-    var oyuncuListesi = children
-        .whereType<Kare>()
-        .where((k) => k.tur == "oyuncu" && !k.isRemoving);
-    if (oyuncuListesi.isEmpty) return;
-    Kare aktifKare = oyuncuListesi.first;
-    double dx = info.delta.global.x;
-    double dy = info.delta.global.y;
+  void _yetersizBakiyeDiyaloguGoster({required int eksikMiktar}) {
+    // HUD sisteminde buna pek gerek kalmadı ama kodun çökmemesi için tutuyoruz.
+    // Kullanıcıya toast mesajı gösterebiliriz.
+    debugPrint("Yetersiz Bakiye");
+  }
 
-    if (dx.abs() > dy.abs()) {
+  // --- INPUT (KULLANICI GİRDİSİ) ---
+  @override
+  void onPanUpdate(DragUpdateInfo i) {
+    if (isGameOver || isPaused || isReviveScreenOpen) return;
+    var o = children.whereType<Kare>().where((k) => k.tur == "oyuncu");
+    if (o.isEmpty) return;
+    Kare k = o.first;
+
+    if (i.delta.global.x.abs() > i.delta.global.y.abs()) {
       suruklemeBirikimiY = 0;
-      suruklemeBirikimiX += dx;
-      if (suruklemeBirikimiX >= gridSize) {
-        hareketEt(aktifKare, 1, 0);
-        suruklemeBirikimiX = 0;
-      } else if (suruklemeBirikimiX <= -gridSize) {
-        hareketEt(aktifKare, -1, 0);
+      suruklemeBirikimiX += i.delta.global.x;
+      if (suruklemeBirikimiX.abs() >= gridSize) {
+        hareketEt(k, suruklemeBirikimiX.sign.toInt());
         suruklemeBirikimiX = 0;
       }
     } else {
-      if (dropLock) return;
-      if (dy < 0) {
-        suruklemeBirikimiY = 0;
-        return;
-      }
-      suruklemeBirikimiY += dy;
+      if (dropLock || i.delta.global.y < 0) return;
+      suruklemeBirikimiY += i.delta.global.y;
       if (suruklemeBirikimiY > 60) {
         dropLock = true;
-        hizliIndir(aktifKare);
+        hizliIndir(k);
         suruklemeBirikimiY = 0;
       }
     }
   }
 
   @override
-  void onPanEnd(DragEndInfo info) {
+  void onPanEnd(DragEndInfo i) {
     dropLock = false;
-    suruklemeBirikimiY = 0;
     suruklemeBirikimiX = 0;
+    suruklemeBirikimiY = 0;
   }
 
   void hizliIndir(Kare k) {
-    int safetyCounter = 0;
-    while (!carpismaVarMi(k.position.x, k.position.y + gridSize) &&
-        safetyCounter < 30) {
+    int s = 0;
+    while (!carpismaVarMi(k.position.x, k.position.y + gridSize) && s < 30) {
       k.position.y += gridSize;
-      skor += 2;
-      skorYazisi.text = '$skor';
-      safetyCounter++;
+      skor += 2; // Hızlı indirme bonusu
+      puanEkle(
+          2); // Puan ekle fonksiyonunu çağırıyoruz ki level/elmas kontrolü yapılsın
+      s++;
     }
     blokKatilastir(k);
   }
 
-  void hareketEt(Kare k, int dx, int dy) {
-    double yeniX = k.position.x + (dx * gridSize);
-    int cols = (size.x / gridSize).floor();
-    double gridOffsetX = (size.x - (cols * gridSize)) / 2;
-    double gridEndX = gridOffsetX + cols * gridSize;
-    if (yeniX >= gridOffsetX &&
-        yeniX < gridEndX &&
-        !carpismaVarMi(yeniX, k.position.y)) {
-      sesCal('sfx/move.mp3');
-      k.position.x = yeniX;
+  void hareketEt(Kare k, int dx) {
+    double nx = k.position.x + dx * gridSize;
+    int c = (size.x / gridSize).floor();
+    double off = (size.x - c * gridSize) / 2;
+
+    if (nx >= off &&
+        nx < off + c * gridSize &&
+        !carpismaVarMi(nx, k.position.y)) {
+      k.position.x = nx;
     }
   }
 
   @override
-  void render(Canvas canvas) {
-    double gridStartY = hudHeight + 20;
-    int rows = ((size.y - gridStartY - 20) / gridSize).floor();
-    int cols = (size.x / gridSize).floor();
-    double gridOffsetX = (size.x - (cols * gridSize)) / 2;
+  void render(Canvas c) {
+    double sy = hudHeight + 20;
+    double ey = size.y - safeBottomArea;
+    int r = ((ey - sy) / gridSize).floor();
+    int col = (size.x / gridSize).floor();
+    double off = (size.x - col * gridSize) / 2;
 
-    for (int i = 0; i < cols; i++) {
-      for (int j = 0; j < rows; j++) {
-        double x = gridOffsetX + i * gridSize;
-        double y = gridStartY + j * gridSize;
-        RRect rrect = RRect.fromRectAndRadius(
-            Rect.fromLTWH(x + 4, y + 4, gridSize - 8, gridSize - 8),
-            const Radius.circular(8.0));
-        slotPaint.color = Colors.white.withOpacity(0.1);
-        canvas.drawRRect(rrect, slotPaint);
+    for (int i = 0; i < col; i++) {
+      for (int j = 0; j < r; j++) {
+        c.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromLTWH(off + i * gridSize + 4, sy + j * gridSize + 4,
+                    gridSize - 8, gridSize - 8),
+                const Radius.circular(8)),
+            slotPaint);
       }
     }
-    super.render(canvas);
+    super.render(c);
   }
 }

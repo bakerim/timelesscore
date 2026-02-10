@@ -7,9 +7,9 @@ import 'package:flutter/foundation.dart';
 import '../game/timeless_game.dart';
 import '../overlays/game_over.dart';
 // import '../overlays/settings_overlay.dart'; // Ayarlar dosyan varsa yorumu kaldır
-// import '../overlays/roadmap_overlay.dart';   // Roadmap dosyan varsa yorumu kaldır
+// import '../overlays/roadmap_overlay.dart';   // Roadmap dosyan varsa yorumu kaldır
 
-// --- İŞTE EKSİK OLAN SATIR BUYDU! ---
+// --- MAIN MENU IMPORTU ---
 import '../overlays/main_menu.dart';
 // ------------------------------------
 
@@ -85,8 +85,9 @@ class _GameScreenState extends State<GameScreen>
           GameWidget(
             game: game,
             overlayBuilderMap: {
+              // BURASI DÜZELTİLDİ: AnaMenuOverlay -> MainMenu
               'AnaMenu': (context, game) =>
-                  AnaMenuOverlay(game: game as TimelessGame),
+                  MainMenu(game: game as TimelessGame),
               'GameOver': (context, game) =>
                   GameOverOverlay(game: game as TimelessGame),
               // 'Ayarlar': (context, game) => SettingsOverlay(game: game as TimelessGame),

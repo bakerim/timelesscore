@@ -1,27 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb kontrolü için
+import 'package:flame/game.dart'; // GameWidget için
+import 'package:flame/flame.dart'; // Flame.device için
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:flame/flame.dart';
-import 'package:flutter/foundation.dart'; // <-- BU EKLENDİ (kIsWeb için)
 
-import 'screens/game_screen.dart';
+// --- KENDİ DOSYALARIMIZ ---
+import 'game/timeless_game.dart';
 import 'data/data_manager.dart';
-import 'core/localization.dart';
+
+// --- OVERLAY (MENÜ) IMPORTLARI ---
+import 'overlays/main_menu.dart';
+import 'overlays/game_over.dart';
+import 'overlays/pause_menu.dart';
+import 'overlays/shop_menu.dart';
+import 'overlays/roadmap_overlay.dart';
+import 'overlays/settings_overlay.dart';
+import 'overlays/revive_menu.dart';
+import 'overlays/game_hud.dart';
+import 'overlays/daily_spin_overlay.dart'; // <--- BU EKSİKTİ, EKLENDİ!
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Veri ve Dil Yönetimi (Her yerde çalışır)
+  // 1. Veri Yönetimi
   await DataManager.init();
-  await Dil.init();
 
-  // 2. SADECE MOBİL İÇİN OLANLARI AYIRALIM
+  // 2. MOBİL ÖZEL AYARLAR
   if (!kIsWeb) {
-    // Tam ekran ve dikey mod (Web'de tam ekran zorlaması hataya sebep olabilir)
     await Flame.device.fullScreen();
     await Flame.device.setPortraitUpOnly();
 
-    // Reklam Servisi (Web'de bu satır uygulamayı çökertir)
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.initialize();
+    } catch (e) {
+      debugPrint("Reklam servisi başlatılamadı: $e");
+    }
   }
 
   runApp(const MyApp());
@@ -41,6 +54,57 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Arial',
       ),
       home: const GameScreen(),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  // Oyun motorunu burada başlatıyoruz
+  final TimelessGame game = TimelessGame();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        game.onBackPressed(); // Geri tuşu kontrolü oyun motorunda
+      },
+      child: Scaffold(
+        body: GameWidget(
+          game: game,
+          // --- OVERLAY (MENÜ) BAĞLANTILARI ---
+          // Buradaki isimler (Key) ile timeless_game.dart içindeki çağrılar (overlays.add) AYNI OLMALI.
+          overlayBuilderMap: {
+            'AnaMenu': (context, game) => MainMenu(game: game as TimelessGame),
+            'GameOver': (context, game) =>
+                GameOverOverlay(game: game as TimelessGame),
+            'PauseMenu': (context, game) =>
+                PauseMenu(game: game as TimelessGame),
+            'Shop': (context, game) => ShopMenu(game: game as TimelessGame),
+            'Roadmap': (context, game) =>
+                RoadmapOverlay(game: game as TimelessGame),
+            'Settings': (context, game) =>
+                SettingsOverlay(game: game as TimelessGame),
+            'ReviveMenu': (context, game) =>
+                ReviveMenu(game: game as TimelessGame),
+
+            // HUD ve ÇARK
+            'GameHUD': (context, game) => GameHUD(game: game as TimelessGame),
+            'DailySpin': (context, game) =>
+                DailySpinOverlay(game: game as TimelessGame),
+          },
+          // Oyun ilk açıldığında Ana Menü gelsin
+          initialActiveOverlays: const ['AnaMenu'],
+        ),
+      ),
     );
   }
 }

@@ -41,6 +41,15 @@ class DataManager {
     dailyStreak = _prefs.getInt(keyStreak) ?? 0;
   }
 
+  // --- YENİ EKLENEN FONKSİYON ---
+  // TimelessGame içinden çağırıyoruz. Anlık para değişimlerini kaydeder.
+  static Future<void> saveData() async {
+    await _prefs.setInt(keyTotalCoins, totalCoins);
+    // İleride başka verileri de buraya ekleyebilirsin
+    await _prefs.setInt(keyHighScore, highScore);
+  }
+  // ------------------------------
+
   static Future<void> saveScore(int score) async {
     int earnedCoins = (score / 10).floor();
     if (earnedCoins > 0) {

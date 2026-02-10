@@ -1,186 +1,336 @@
-import 'package:flutter/foundation.dart';
-
 class Dil {
   // Varsayılan dil
-  static String currentLanguage = 'TR';
+  static String mevcutDil = 'TR';
 
-  // Çeviri haritası
-  static Map<String, String> _localizedValues = {};
+  static String get currentLanguage => mevcutDil.toLowerCase();
 
-  // --- BAŞLATMA METODU ---
-  static Future<void> init() async {
-    _loadValues('TR');
-    debugPrint("Dil servisi başlatıldı: $currentLanguage");
+  static void setLanguage(String langCode) {
+    dilDegistir(langCode.toUpperCase());
   }
 
-  // Dili değiştirmek için
-  static void switchLanguage(String lang) {
-    if (['TR', 'EN', 'DE', 'ES', 'FR'].contains(lang)) {
-      currentLanguage = lang;
-      _loadValues(lang);
-      debugPrint("Dil değiştirildi: $lang");
-    }
-  }
+  static final Map<String, Map<String, String>> _sozluk = {
+    // ----------------------------------------------------------------
+    // TÜRKÇE (TR)
+    // ----------------------------------------------------------------
+    'TR': {
+      // ... (Eski kelimeler aynen kalıyor) ...
+      'baslik': 'Timeless Core',
+      'basla': 'OYUNA BAŞLA',
+      'devam_et': 'DEVAM ET',
+      'ayarlar': 'AYARLAR',
+      'market': 'MARKET',
+      'cikis': 'ÇIKIŞ',
+      'oyun_bitti': 'OYUN BİTTİ',
+      'puan': 'PUAN',
+      'rekor': 'REKOR',
+      'seviye': 'SEVİYE',
+      'yeni_rekor': 'YENİ REKOR!',
+      'duraklatildi': 'OYUN DURDURULDU',
+      'ana_menu': 'ANA MENÜ',
+      'tekrar_oyna': 'TEKRAR OYNA',
+      'muzik': 'Müzik',
+      'ses': 'Ses Efektleri',
+      'dil_secimi': 'Dil Seçimi',
+      'geri': 'GERİ DÖN',
+      'izle_kazan': 'İZLE VE KAZAN',
+      'iki_kat_kazan': '2 KATI PUAN KAZAN',
+      'reklam_yukleniyor': 'Reklam yükleniyor...',
+      'reklam_kaldir': 'REKLAMLARI KALDIR',
+      'premium_aktif': 'PREMIUM AKTİF',
+      'yetersiz_bakiye': 'Yetersiz Kristal!',
+      'satin_al': 'SATIN AL',
+      'ucretsiz': 'ÜCRETSİZ',
+      'zaman_bukuldu': 'ZAMAN BÜKÜLDÜ!',
+      'zaman_normal': 'ZAMAN NORMALE DÖNDÜ',
+      'ikinci_sans': 'İKİNCİ ŞANS!',
+      'mukemmel': 'MÜKEMMEL!',
+      'yol_haritasi': 'YOL HARİTASI',
+      'kristal_kazandin': 'Kristal Kazandın!',
+      'paket_baslangic': 'Başlangıç Paketi',
+      'paket_profesyonel': 'Profesyonel Paket',
+      'paket_mega': 'Mega Paket',
+      'reklamsiz_aciklama': 'Reklamsız oyun keyfi!',
+      'kesintisiz_aciklama': 'Kesintisiz deneyim için.',
+      'market_baslik': 'ZAMAN MARKETİ',
+      'toplam': 'TOPLAM',
+      'kazanc': 'KAZANÇ',
+      'tamam': 'TAMAM',
+      'evet': 'EVET',
+      'hayir': 'HAYIR',
+      'basarili': 'BAŞARILI!',
+      'kilitli': 'KİLİTLİ',
+      'tamamlandi': 'TAMAMLANDI',
 
-  // Metni getiren fonksiyon
+      // --- YENİ EKLENEN RÜTBELER ---
+      'rutbe_acemi': 'ACEMİ',
+      'rutbe_cirak': 'ÇIRAK',
+      'rutbe_kasif': 'KAŞİF',
+      'rutbe_usta': 'USTA',
+      'rutbe_efsane': 'EFSANE',
+      'rutbe_zaman_yocusu': 'ZAMAN YOLCUSU',
+      'rutbe_zaman_lordu': 'ZAMAN LORDU',
+    },
+
+    // ----------------------------------------------------------------
+    // ENGLISH (EN)
+    // ----------------------------------------------------------------
+    'EN': {
+      // ... (Eski kelimeler) ...
+      'baslik': 'Timeless Core',
+      'basla': 'START GAME',
+      'devam_et': 'RESUME',
+      'ayarlar': 'SETTINGS',
+      'market': 'SHOP',
+      'cikis': 'EXIT',
+      'oyun_bitti': 'GAME OVER',
+      'puan': 'SCORE',
+      'rekor': 'BEST',
+      'seviye': 'LEVEL',
+      'yeni_rekor': 'NEW RECORD!',
+      'duraklatildi': 'PAUSED',
+      'ana_menu': 'MAIN MENU',
+      'tekrar_oyna': 'PLAY AGAIN',
+      'muzik': 'Music',
+      'ses': 'Sound FX',
+      'dil_secimi': 'Language',
+      'geri': 'BACK',
+      'izle_kazan': 'WATCH & WIN',
+      'iki_kat_kazan': 'GET 2X SCORE',
+      'reklam_yukleniyor': 'Loading ad...',
+      'reklam_kaldir': 'REMOVE ADS',
+      'premium_aktif': 'PREMIUM ACTIVE',
+      'yetersiz_bakiye': 'Not enough Crystals!',
+      'satin_al': 'BUY',
+      'ucretsiz': 'FREE',
+      'zaman_bukuldu': 'TIME WARPED!',
+      'zaman_normal': 'TIME NORMAL',
+      'ikinci_sans': 'SECOND CHANCE!',
+      'mukemmel': 'PERFECT!',
+      'yol_haritasi': 'ROADMAP',
+      'kristal_kazandin': 'Crystals Earned!',
+      'paket_baslangic': 'Starter Pack',
+      'paket_profesyonel': 'Pro Pack',
+      'paket_mega': 'Mega Pack',
+      'reklamsiz_aciklama': 'Ad-free gaming!',
+      'kesintisiz_aciklama': 'For uninterrupted experience.',
+      'market_baslik': 'TIME SHOP',
+      'toplam': 'TOTAL',
+      'kazanc': 'EARNED',
+      'tamam': 'OK',
+      'evet': 'YES',
+      'hayir': 'NO',
+      'basarili': 'SUCCESS!',
+      'kilitli': 'LOCKED',
+      'tamamlandi': 'COMPLETED',
+
+      // --- NEW RANKS ---
+      'rutbe_acemi': 'NOVICE',
+      'rutbe_cirak': 'APPRENTICE',
+      'rutbe_kasif': 'EXPLORER',
+      'rutbe_usta': 'MASTER',
+      'rutbe_efsane': 'LEGEND',
+      'rutbe_zaman_yocusu': 'TIME TRAVELER',
+      'rutbe_zaman_lordu': 'TIME LORD',
+    },
+
+    // ----------------------------------------------------------------
+    // DEUTSCH (DE)
+    // ----------------------------------------------------------------
+    'DE': {
+      // ... (Diğer kelimeler) ...
+      'baslik': 'Timeless Core',
+      'basla': 'STARTEN',
+      'devam_et': 'WEITER',
+      'ayarlar': 'EINSTELLUNGEN',
+      'market': 'LADEN',
+      'cikis': 'BEENDEN',
+      'oyun_bitti': 'SPIEL VORBEI',
+      'puan': 'PUNKTE',
+      'rekor': 'REKORD',
+      'seviye': 'LEVEL',
+      'yeni_rekor': 'NEUER REKORD!',
+      'duraklatildi': 'PAUSIERT',
+      'ana_menu': 'HAUPTMENÜ',
+      'tekrar_oyna': 'NEUSTART',
+      'muzik': 'Musik',
+      'ses': 'Soundeffekte',
+      'dil_secimi': 'Sprache',
+      'geri': 'ZURÜCK',
+      'izle_kazan': 'ANSEHEN & GEWINNEN',
+      'iki_kat_kazan': '2X PUNKTE',
+      'reklam_yukleniyor': 'Werbung lädt...',
+      'reklam_kaldir': 'WERBUNG ENTFERNEN',
+      'premium_aktif': 'PREMIUM AKTIV',
+      'yetersiz_bakiye': 'Nicht genug Kristalle!',
+      'satin_al': 'KAUFEN',
+      'ucretsiz': 'KOSTENLOS',
+      'zaman_bukuldu': 'ZEITVERZERRUNG!',
+      'zaman_normal': 'ZEIT NORMAL',
+      'ikinci_sans': 'ZWEITE CHANCE!',
+      'mukemmel': 'PERFEKT!',
+      'yol_haritasi': 'ROADMAP',
+      'kristal_kazandin': 'Kristalle Verdient!',
+      'paket_baslangic': 'Starterpaket',
+      'paket_profesyonel': 'Profi-Paket',
+      'paket_mega': 'Megapaket',
+      'reklamsiz_aciklama': 'Werbefreies Spiel!',
+      'kesintisiz_aciklama': 'Für ungestörtes Erlebnis.',
+      'market_baslik': 'ZEITLADEN',
+      'toplam': 'GESAMT',
+      'kazanc': 'VERDIENT',
+      'tamam': 'OK',
+      'evet': 'JA',
+      'hayir': 'NEIN',
+      'basarili': 'ERFOLG!',
+      'kilitli': 'GESPERRT',
+      'tamamlandi': 'FERTIG',
+
+      // --- NEUE RÄNGE ---
+      'rutbe_acemi': 'ANFÄNGER',
+      'rutbe_cirak': 'LEHRLING',
+      'rutbe_kasif': 'ENTDECKER',
+      'rutbe_usta': 'MEISTER',
+      'rutbe_efsane': 'LEGENDE',
+      'rutbe_zaman_yocusu': 'ZEITREISENDER',
+      'rutbe_zaman_lordu': 'ZEITLORD',
+    },
+
+    // ----------------------------------------------------------------
+    // ESPAÑOL (ES)
+    // ----------------------------------------------------------------
+    'ES': {
+      // ... (Diğer kelimeler) ...
+      'baslik': 'Timeless Core',
+      'basla': 'EMPEZAR',
+      'devam_et': 'CONTINUAR',
+      'ayarlar': 'AJUSTES',
+      'market': 'TIENDA',
+      'cikis': 'SALIR',
+      'oyun_bitti': 'JUEGO TERMINADO',
+      'puan': 'PUNTOS',
+      'rekor': 'RÉCORD',
+      'seviye': 'NIVEL',
+      'yeni_rekor': '¡NUEVO RÉCORD!',
+      'duraklatildi': 'PAUSADO',
+      'ana_menu': 'MENÚ PRINCIPAL',
+      'tekrar_oyna': 'JUGAR DE NUEVO',
+      'muzik': 'Música',
+      'ses': 'Efectos de Sonido',
+      'dil_secimi': 'Idioma',
+      'geri': 'VOLVER',
+      'izle_kazan': 'VER Y GANAR',
+      'iki_kat_kazan': '2X PUNTOS',
+      'reklam_yukleniyor': 'Cargando anuncio...',
+      'reklam_kaldir': 'QUITAR ANUNCIOS',
+      'premium_aktif': 'PREMIUM ACTIVO',
+      'yetersiz_bakiye': '¡No hay suficientes cristales!',
+      'satin_al': 'COMPRAR',
+      'ucretsiz': 'GRATIS',
+      'zaman_bukuldu': '¡TIEMPO DEFORMADO!',
+      'zaman_normal': 'TIEMPO NORMAL',
+      'ikinci_sans': '¡SEGUNDA OPORTUNIDAD!',
+      'mukemmel': '¡PERFECTO!',
+      'yol_haritasi': 'HOJA DE RUTA',
+      'kristal_kazandin': '¡Cristales Ganados!',
+      'paket_baslangic': 'Paquete de Inicio',
+      'paket_profesyonel': 'Paquete Pro',
+      'paket_mega': 'Paquete Mega',
+      'reklamsiz_aciklama': '¡Juego sin anuncios!',
+      'kesintisiz_aciklama': 'Para una experiencia ininterrumpida.',
+      'market_baslik': 'TIENDA',
+      'toplam': 'TOTAL',
+      'kazanc': 'GANADO',
+      'tamam': 'OK',
+      'evet': 'SÍ',
+      'hayir': 'NO',
+      'basarili': '¡ÉXITO!',
+      'kilitli': 'BLOQUEADO',
+      'tamamlandi': 'COMPLETADO',
+
+      // --- NUEVOS RANGOS ---
+      'rutbe_acemi': 'NOVATO',
+      'rutbe_cirak': 'APRENDIZ',
+      'rutbe_kasif': 'EXPLORADOR',
+      'rutbe_usta': 'MAESTRO',
+      'rutbe_efsane': 'LEYENDA',
+      'rutbe_zaman_yocusu': 'VIAJERO DEL TIEMPO',
+      'rutbe_zaman_lordu': 'SEÑOR DEL TIEMPO',
+    },
+
+    // ----------------------------------------------------------------
+    // FRANÇAIS (FR)
+    // ----------------------------------------------------------------
+    'FR': {
+      // ... (Diğer kelimeler) ...
+      'baslik': 'Timeless Core',
+      'basla': 'COMMENCER',
+      'devam_et': 'CONTINUER',
+      'ayarlar': 'PARAMÈTRES',
+      'market': 'BOUTIQUE',
+      'cikis': 'QUITTER',
+      'oyun_bitti': 'JEU TERMINÉ',
+      'puan': 'SCORE',
+      'rekor': 'RECORD',
+      'seviye': 'NIVEAU',
+      'yeni_rekor': 'NOUVEAU RECORD!',
+      'duraklatildi': 'PAUSE',
+      'ana_menu': 'MENU PRINCIPAL',
+      'tekrar_oyna': 'REJOUER',
+      'muzik': 'Musique',
+      'ses': 'Effets Sonores',
+      'dil_secimi': 'Langue',
+      'geri': 'RETOUR',
+      'izle_kazan': 'REGARDER & GAGNER',
+      'iki_kat_kazan': 'SCORE 2X',
+      'reklam_yukleniyor': 'Chargement...',
+      'reklam_kaldir': 'SUPPRIMER LES PUBS',
+      'premium_aktif': 'PREMIUM ACTIF',
+      'yetersiz_bakiye': 'Pas assez de cristaux!',
+      'satin_al': 'ACHETER',
+      'ucretsiz': 'GRATUIT',
+      'zaman_bukuldu': 'TEMPS DÉFORMÉ!',
+      'zaman_normal': 'TEMPS NORMAL',
+      'ikinci_sans': 'SECONDE CHANCE!',
+      'mukemmel': 'PARFAIT!',
+      'yol_haritasi': 'FEUILLE DE ROUTE',
+      'kristal_kazandin': 'Cristaux Gagnés!',
+      'paket_baslangic': 'Pack Débutant',
+      'paket_profesyonel': 'Pack Pro',
+      'paket_mega': 'Pack Méga',
+      'reklamsiz_aciklama': 'Jeu sans publicité!',
+      'kesintisiz_aciklama': 'Pour une expérience ininterrompue.',
+      'market_baslik': 'BOUTIQUE',
+      'toplam': 'TOTAL',
+      'kazanc': 'GAGNÉ',
+      'tamam': 'OK',
+      'evet': 'OUI',
+      'hayir': 'NON',
+      'basarili': 'SUCCÈS!',
+      'kilitli': 'VERROUILLÉ',
+      'tamamlandi': 'TERMINÉ',
+
+      // --- NOUVEAUX RANGS ---
+      'rutbe_acemi': 'NOVICE',
+      'rutbe_cirak': 'APPRENTI',
+      'rutbe_kasif': 'EXPLORATEUR',
+      'rutbe_usta': 'MAÎTRE',
+      'rutbe_efsane': 'LÉGENDE',
+      'rutbe_zaman_yocusu': 'VOYAGEUR DU TEMPS',
+      'rutbe_zaman_lordu': 'SEIGNEUR DU TEMPS',
+    },
+  };
+
   static String get(String key) {
-    if (_localizedValues.containsKey(key)) {
-      return _localizedValues[key]!;
+    if (_sozluk[mevcutDil] != null && _sozluk[mevcutDil]!.containsKey(key)) {
+      return _sozluk[mevcutDil]![key]!;
     }
-    debugPrint("Eksik Çeviri Anahtarı: $key");
-    return key.toUpperCase();
+    return _sozluk['TR']?[key] ?? key.toUpperCase();
   }
 
-  // --- KELİME KÜTÜPHANESİ ---
-  static void _loadValues(String lang) {
-    switch (lang) {
-      case 'TR': // Türkçe
-        _localizedValues = {
-          "basla": "BAŞLAT",
-          "baslat": "BAŞLAT",
-          "yol_haritasi": "YOL HARİTASI",
-          "ayarlar": "AYARLAR",
-          "market": "MARKET",
-          "rekor": "REKOR",
-          "muzik": "Müzik",
-          "ses": "Ses Efektleri",
-          "dil": "Dil / Language",
-          "kaydet": "KAYDET",
-          "geri": "GERİ",
-          "devam_et": "DEVAM ET",
-          "puan": "Puan",
-          "oyun_bitti": "OYUN BİTTİ",
-          "tekrar_oyna": "TEKRAR OYNA",
-          "ana_menu": "ANA MENÜ",
-          "iki_kat_kazan": "2X PUAN (REKLAM)", // YENİ
-          "reklam_yukleniyor": "Reklam Yükleniyor...", // YENİ
-          "acemi": "Acemi",
-          "cirak": "Çırak",
-          "uzman": "Uzman",
-          "usta": "Usta",
-          "efsane": "Efsane",
-          "boyut_gezgini": "Boyut Gezgini",
-        };
-        break;
-
-      case 'EN': // İngilizce
-        _localizedValues = {
-          "basla": "PLAY",
-          "baslat": "PLAY",
-          "yol_haritasi": "ROADMAP",
-          "ayarlar": "SETTINGS",
-          "market": "SHOP",
-          "rekor": "BEST",
-          "muzik": "Music",
-          "ses": "Sound FX",
-          "dil": "Language",
-          "kaydet": "SAVE",
-          "geri": "BACK",
-          "devam_et": "RESUME",
-          "puan": "Score",
-          "oyun_bitti": "GAME OVER",
-          "tekrar_oyna": "PLAY AGAIN",
-          "ana_menu": "MAIN MENU",
-          "iki_kat_kazan": "GET 2X (ADS)", // NEW
-          "reklam_yukleniyor": "Loading Ad...", // NEW
-          "acemi": "Novice",
-          "cirak": "Apprentice",
-          "uzman": "Expert",
-          "usta": "Master",
-          "efsane": "Legend",
-          "boyut_gezgini": "Dimension Walker",
-        };
-        break;
-
-      case 'DE': // Almanca
-        _localizedValues = {
-          "basla": "STARTEN",
-          "baslat": "STARTEN",
-          "yol_haritasi": "ROADMAP",
-          "ayarlar": "EINSTELLUNGEN",
-          "market": "MARKT",
-          "rekor": "REKORD",
-          "muzik": "Musik",
-          "ses": "Soundeffekte",
-          "dil": "Sprache",
-          "kaydet": "SPEICHERN",
-          "geri": "ZURÜCK",
-          "devam_et": "WEITER",
-          "puan": "Punkte",
-          "oyun_bitti": "SPIEL VORBEI",
-          "tekrar_oyna": "NEUSTART",
-          "ana_menu": "HAUPTMENÜ",
-          "iki_kat_kazan": "2X PUNKTE (WERBUNG)", // NEU
-          "reklam_yukleniyor": "Werbung wird geladen...", // NEU
-          "acemi": "Anfänger",
-          "cirak": "Lehrling",
-          "uzman": "Experte",
-          "usta": "Meister",
-          "efsane": "Legende",
-          "boyut_gezgini": "Dimensionswandler",
-        };
-        break;
-
-      case 'ES': // İspanyolca
-        _localizedValues = {
-          "basla": "JUGAR",
-          "baslat": "JUGAR",
-          "yol_haritasi": "MAPA",
-          "ayarlar": "AJUSTES",
-          "market": "TIENDA",
-          "rekor": "RÉCORD",
-          "muzik": "Música",
-          "ses": "Efectos",
-          "dil": "Idioma",
-          "kaydet": "GUARDAR",
-          "geri": "VOLVER",
-          "devam_et": "CONTINUAR",
-          "puan": "Puntuación",
-          "oyun_bitti": "JUEGO TERMINADO",
-          "tekrar_oyna": "JUGAR DE NUEVO",
-          "ana_menu": "MENÚ PRINCIPAL",
-          "iki_kat_kazan": "GANAR 2X (PUBLICIDAD)", // NUEVO
-          "reklam_yukleniyor": "Cargando publicidad...", // NUEVO
-          "acemi": "Novato",
-          "cirak": "Aprendiz",
-          "uzman": "Experto",
-          "usta": "Maestro",
-          "efsane": "Leyenda",
-          "boyut_gezgini": "Caminante Dimensional",
-        };
-        break;
-
-      case 'FR': // Fransızca
-        _localizedValues = {
-          "basla": "JOUER",
-          "baslat": "JOUER",
-          "yol_haritasi": "PARCOURS",
-          "ayarlar": "PARAMÈTRES",
-          "market": "BOUTIQUE",
-          "rekor": "RECORD",
-          "muzik": "Musique",
-          "ses": "Effets Sonores",
-          "dil": "Langue",
-          "kaydet": "SAUVEGARDER",
-          "geri": "RETOUR",
-          "devam_et": "REPRENDRE",
-          "puan": "Score",
-          "oyun_bitti": "FIN DE PARTIE",
-          "tekrar_oyna": "REJOUER",
-          "ana_menu": "MENU PRINCIPAL",
-          "iki_kat_kazan": "GAGNER 2X (PUB)", // NOUVEAU
-          "reklam_yukleniyor": "Chargement de la pub...", // NOUVEAU
-          "acemi": "Novice",
-          "cirak": "Apprenti",
-          "uzman": "Expert",
-          "usta": "Maître",
-          "efsane": "Légende",
-          "boyut_gezgini": "Voyageur Dimensionnel",
-        };
-        break;
-
-      default:
-        _loadValues('EN');
+  static void dilDegistir(String yeniDil) {
+    String upperLang = yeniDil.toUpperCase();
+    if (_sozluk.containsKey(upperLang)) {
+      mevcutDil = upperLang;
     }
   }
 }

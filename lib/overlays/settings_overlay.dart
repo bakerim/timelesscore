@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../game/timeless_game.dart';
-import '../core/localization.dart'; // Dil sınıfı
-import '../core/constants.dart' as Core; // Tasarım renkleri
+import '../core/localization.dart';
 
 class SettingsOverlay extends StatefulWidget {
   final TimelessGame game;
@@ -12,169 +12,250 @@ class SettingsOverlay extends StatefulWidget {
 }
 
 class _SettingsOverlayState extends State<SettingsOverlay> {
-  bool _muzikAcik = true;
-  bool _sfxAcik = true;
-  String _seciliDil = 'TR';
+  bool _musicOn = true;
+  bool _sfxOn = true;
+
+  // Desteklenen dillerin listesi
+  final List<String> _languages = ['TR', 'EN', 'DE', 'ES', 'FR'];
 
   @override
   void initState() {
     super.initState();
-    // Oyunun mevcut ses durumunu çek
-    _sfxAcik = widget.game.sesAcik;
+    _musicOn = widget.game.muzikAcik;
+    _sfxOn = widget.game.sesAcik;
+  }
 
-    // --- HATA DÜZELTME 1 ---
-    // 'mevcutDil' yerine 'currentLanguage' kullanıyoruz
-    _seciliDil = Dil.currentLanguage;
+  void _kapat() {
+    if (widget.game.overlays.isActive('Ayarlar'))
+      widget.game.overlays.remove('Ayarlar');
+    if (widget.game.overlays.isActive('Settings'))
+      widget.game.overlays.remove('Settings');
+  }
+
+  void _dilDegistir(String langCode) {
+    setState(() {
+      Dil.dilDegistir(langCode); // Localization sınıfındaki metodu çağır
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        color: Colors.black.withOpacity(0.85),
-        child: Center(
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Core.Tasarim.arkaPlan,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: Colors.amberAccent.withOpacity(0.5), width: 2),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10))
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  Dil.get("ayarlar").toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5),
-                ),
-                const SizedBox(height: 30),
-
-                // Müzik Ayarı
-                _buildSwitchRow(Dil.get("muzik"), Icons.music_note, _muzikAcik,
-                    (val) {
-                  setState(() => _muzikAcik = val);
-                  // İleride buraya müzik aç/kapa kodu gelecek
-                }),
-                const Divider(color: Colors.white12),
-
-                // Ses Efektleri Ayarı
-                _buildSwitchRow(Dil.get("ses"), Icons.volume_up, _sfxAcik,
-                    (val) {
-                  setState(() => _sfxAcik = val);
-                  widget.game.sesAcik = val; // Oyuna bildir
-                }),
-                const Divider(color: Colors.white12),
-
-                // Dil Seçimi
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Stack(
+        children: [
+          // Glass Background
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: Colors.black.withOpacity(0.8)),
+          ),
+          Center(
+            child: Container(
+              width: 340,
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withOpacity(0.95),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.white10),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.cyanAccent.withOpacity(0.1),
+                      blurRadius: 30,
+                      spreadRadius: 2)
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // --- HEADER ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.language, color: Colors.amberAccent),
-                          const SizedBox(width: 15),
-                          Text(Dil.get("dil"),
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 18)),
-                        ],
-                      ),
-                      DropdownButton<String>(
-                        value: _seciliDil,
-                        dropdownColor: const Color(0xFF1F1F2E),
-                        style: const TextStyle(color: Colors.white),
-                        underline: Container(), // Çizgiyi kaldır
-                        // 5 DİL DESTEĞİ BURADA
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'TR', child: Text("Türkçe 🇹🇷")),
-                          DropdownMenuItem(
-                              value: 'EN', child: Text("English 🇺🇸")),
-                          DropdownMenuItem(
-                              value: 'DE', child: Text("Deutsch 🇩🇪")),
-                          DropdownMenuItem(
-                              value: 'ES', child: Text("Español 🇪🇸")),
-                          DropdownMenuItem(
-                              value: 'FR', child: Text("Français 🇫🇷")),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _seciliDil = val;
-                              // --- HATA DÜZELTME 2 ---
-                              // 'sec' yerine 'switchLanguage' kullanıyoruz
-                              Dil.switchLanguage(val);
-                            });
-                          }
-                        },
-                      )
+                      const Icon(Icons.settings_suggest_rounded,
+                          color: Colors.cyanAccent, size: 28),
+                      const SizedBox(width: 10),
+                      Text(Dil.get("ayarlar"),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2)),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 25),
 
-                const SizedBox(height: 30),
-
-                // Kapat Butonu
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      widget.game.overlays.remove('Ayarlar');
-                      widget.game.overlays.add('AnaMenu');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amberAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(Dil.get("kaydet"),
-                        style: const TextStyle(
-                            color: Colors.black, fontWeight: FontWeight.bold)),
+                  // --- DİL SEÇİMİ (5 DİL) ---
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                        Dil.get("dil_secimi")
+                            .toUpperCase(), // "DİL SEÇİMİ" / "LANGUAGE"
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                   ),
-                )
-              ],
+                  const SizedBox(height: 10),
+
+                  // Yatay kaydırılabilir dil listesi
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: _languages
+                          .map((lang) => _buildLangButton(lang))
+                          .toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // --- SES AYARLARI ---
+                  _buildSwitchTile(
+                    label: Dil.get("muzik"),
+                    icon: Icons.music_note_rounded,
+                    value: _musicOn,
+                    color: Colors.purpleAccent,
+                    onChanged: (val) {
+                      setState(() => _musicOn = val);
+                      widget.game.muzikYonetimi(val);
+                    },
+                  ),
+                  const SizedBox(height: 15),
+                  _buildSwitchTile(
+                    label: Dil.get("ses"),
+                    icon: Icons.volume_up_rounded,
+                    value: _sfxOn,
+                    color: Colors.amberAccent,
+                    onChanged: (val) {
+                      setState(() => _sfxOn = val);
+                      widget.game.sesAcik = val;
+                    },
+                  ),
+
+                  const SizedBox(height: 30),
+                  const Divider(color: Colors.white10),
+                  const SizedBox(height: 10),
+
+                  // --- KAPAT ---
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _kapat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyanAccent.shade700,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                      ),
+                      child: Text(Dil.get("kapat"),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                  )
+                ],
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLangButton(String code) {
+    bool isSelected = Dil.currentLanguage == code;
+
+    // Her dil için küçük bir renk/bayrak teması (Opsiyonel)
+    Color langColor;
+    switch (code) {
+      case 'TR':
+        langColor = Colors.redAccent;
+        break;
+      case 'EN':
+        langColor = Colors.blueAccent;
+        break;
+      case 'DE':
+        langColor = Colors.amber;
+        break;
+      case 'ES':
+        langColor = Colors.orangeAccent;
+        break;
+      case 'FR':
+        langColor = Colors.indigoAccent;
+        break;
+      default:
+        langColor = Colors.grey;
+    }
+
+    return GestureDetector(
+      onTap: () => _dilDegistir(code),
+      child: Container(
+        margin: const EdgeInsets.only(right: 10), // Butonlar arası boşluk
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? langColor.withOpacity(0.2)
+              : Colors.white.withOpacity(0.05),
+          border: Border.all(
+              color: isSelected ? langColor : Colors.transparent, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected
+              ? [BoxShadow(color: langColor.withOpacity(0.4), blurRadius: 10)]
+              : [],
+        ),
+        child: Center(
+          child: Text(
+            code,
+            style: TextStyle(
+                color: isSelected ? langColor : Colors.white54,
+                fontWeight: FontWeight.bold,
+                fontSize: 16),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSwitchRow(
-      String label, IconData icon, bool value, Function(bool) onChanged) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+  Widget _buildSwitchTile({
+    required String label,
+    required IconData icon,
+    required bool value,
+    required Color color,
+    required Function(bool) onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+            color: value ? color.withOpacity(0.5) : Colors.transparent),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.amberAccent),
-              const SizedBox(width: 15),
-              Text(label,
-                  style: const TextStyle(color: Colors.white, fontSize: 18)),
-            ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.2), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
           ),
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: Colors.amberAccent,
-            activeTrackColor: Colors.amberAccent.withOpacity(0.3),
+            activeColor: color,
+            activeTrackColor: color.withOpacity(0.3),
             inactiveThumbColor: Colors.grey,
             inactiveTrackColor: Colors.grey.withOpacity(0.3),
           ),
