@@ -103,10 +103,10 @@ class _GameScreenState extends State<GameScreen>
               game: game,
               initialActiveOverlays: const ['AnaMenu'],
               overlayBuilderMap: {
-                'AnaMenu': (context, game) =>
-                    MainMenu(game: game as TimelessGame), // DÜZELTİLDİ: MainMenu
+                'AnaMenu': (context, game) => MainMenu(
+                    game: game as TimelessGame), // DÜZELTİLDİ: MainMenu
                 'GameOver': (context, game) =>
-                    GameOverOverlay(game: game as TimelessGame),
+                    GameOver(game: game as TimelessGame),
                 'PauseMenu': (context, game) =>
                     PauseMenu(game: game as TimelessGame),
                 'Settings': (context, game) =>
@@ -152,7 +152,7 @@ class FloatingShapesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    final random = Random(42); 
+    final random = Random(42);
 
     for (int i = 0; i < 15; i++) {
       paint.color = i % 2 == 0

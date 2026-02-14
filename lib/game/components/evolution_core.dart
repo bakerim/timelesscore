@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class EvolutionCore extends StatelessWidget {
   final int level; // ProgressManager'dan gelecek seviye
 
-  const EvolutionCore({Key? key, required this.level}) : super(key: key);
+  const EvolutionCore({super.key, required this.level});
 
   @override
   Widget build(BuildContext context) {

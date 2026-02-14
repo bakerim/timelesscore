@@ -89,7 +89,7 @@ class _GameScreenState extends State<GameScreen>
               'AnaMenu': (context, game) =>
                   MainMenu(game: game as TimelessGame),
               'GameOver': (context, game) =>
-                  GameOverOverlay(game: game as TimelessGame),
+                  GameOver(game: game as TimelessGame),
               // 'Ayarlar': (context, game) => SettingsOverlay(game: game as TimelessGame),
               // 'Roadmap': (context, game) => RoadmapOverlay(game: game as TimelessGame),
             },

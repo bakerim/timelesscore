@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
-import '../data/purchase_manager.dart';
 import '../core/localization.dart';
-// import '../game/ad_manager.dart';
+import '../data/purchase_manager.dart'; // Yeni PurchaseManager
+// import '../game/ad_manager.dart'; // Gerek yok, game üzerinden erişeceğiz
 
 class ShopMenu extends StatefulWidget {
   final TimelessGame game;
@@ -46,6 +46,17 @@ class _ShopMenuState extends State<ShopMenu>
     setState(() {
       _currentCoins = DataManager.totalCoins;
     });
+  }
+
+  // --- NAVİGASYON DÜZELTMESİ BURADA ---
+  void _kapat() {
+    widget.game.overlays.remove('Shop');
+
+    // MANTIK: Eğer oyun duraklatılmışsa VE Oyun HUD'ı ekranda yoksa
+    // Demek ki ana menüden geldik, ana menüye dönelim.
+    if (widget.game.isPaused && !widget.game.overlays.isActive('GameHUD')) {
+      widget.game.overlays.add('AnaMenu');
+    }
   }
 
   void _showSnack(String message, Color color) {
@@ -104,32 +115,26 @@ class _ShopMenuState extends State<ShopMenu>
                         children: [
                           _buildSectionTitle("PREMIUM"),
                           _buildRemoveAdsCard(),
-
                           const SizedBox(height: 25),
-
                           _buildSectionTitle("FREE REWARDS"),
-                          // GÜNCELLENEN REKLAM KARTI BURADA
                           _buildWatchAdCard(),
-
                           const SizedBox(height: 25),
-
                           _buildSectionTitle("CRYSTAL SHOP"),
                           const SizedBox(height: 10),
                           _buildCoinPacksGrid(),
-
                           const SizedBox(height: 20),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 15),
+
+                  // KAPAT BUTONU (GÜNCELLENDİ)
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: TextButton(
-                      onPressed: () {
-                        widget.game.overlays.remove('Shop');
-                      },
+                      onPressed: _kapat, // Düzeltilmiş fonksiyonu çağırıyoruz
                       style: TextButton.styleFrom(
                           foregroundColor: Colors.white54,
                           shape: RoundedRectangleBorder(
@@ -280,7 +285,8 @@ class _ShopMenuState extends State<ShopMenu>
           if (!isRemoved)
             ElevatedButton(
               onPressed: () {
-                PurchaseManager.buyProduct(PurchaseManager.idRemoveAds);
+                // Reklam Kaldırma ID'si (Google Play'de tanımlı olmalı)
+                PurchaseManager.buyProduct("remove_ads");
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -289,9 +295,9 @@ class _ShopMenuState extends State<ShopMenu>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(
-                _getPrice(PurchaseManager.idRemoveAds),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              child: const Text(
+                "₺79.99",
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -299,7 +305,7 @@ class _ShopMenuState extends State<ShopMenu>
     );
   }
 
-  // --- REKLAM İZLEME ALANI (GÜNCELLENDİ: +3 KRİSTAL) ---
+  // --- REKLAM İZLEME KARTI (GÜNCELLENDİ: AdManager Entegre Edildi) ---
   Widget _buildWatchAdCard() {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -329,7 +335,6 @@ class _ShopMenuState extends State<ShopMenu>
                       Text("Reward: ",
                           style: TextStyle(color: Colors.grey, fontSize: 12)),
                       Icon(Icons.diamond, size: 12, color: Colors.cyanAccent),
-                      // BURASI GÜNCELLENDİ: +3
                       Text(" +3",
                           style: TextStyle(
                               color: Colors.cyanAccent,
@@ -343,13 +348,13 @@ class _ShopMenuState extends State<ShopMenu>
           ),
           ElevatedButton(
             onPressed: () {
-              // --- AD MANAGER ÇAĞRISI ---
+              // --- DÜZELTME: AdManager ENTEGRASYONU ---
+              // widget.game üzerinden AdManager'a erişiyoruz.
               widget.game.adManager.showRewardedAd(
                 onReward: (amount) {
-                  // MANTIK: Kullanıcı önerisine göre 3 Kristal veriyoruz.
-                  DataManager.totalCoins += 3;
+                  DataManager.totalCoins += 3; // +3 Kristal
                   DataManager.saveData();
-                  _updateCoins();
+                  _updateCoins(); // UI'ı güncelle
                   _showSnack("+3 Kristal Eklendi! 💎", Colors.green);
                 },
                 onAdFailed: () {
@@ -372,8 +377,11 @@ class _ShopMenuState extends State<ShopMenu>
     );
   }
 
-  // --- PAKETLER GRID (DEĞERLİ PAKETLER) ---
+  // --- PAKETLER GRID (GÜNCELLENDİ: PurchaseManager ID'leri) ---
   Widget _buildCoinPacksGrid() {
+    // NOT: Bu ID'ler lib/core/purchase_manager.dart dosyasındakilerle AYNI olmalı.
+    // Eşleşmezse Google Play hata verir.
+
     return Column(
       children: [
         Row(
@@ -381,8 +389,9 @@ class _ShopMenuState extends State<ShopMenu>
             Expanded(
               child: _buildPackCard(
                 title: "STARTER",
-                amount: "1,000", // Artık 1000 kristal çok değerli
-                priceId: PurchaseManager.idCoinPack1,
+                amount:
+                    "50", // Miktarı PurchaseManager ile uyumlu hale getirdim
+                priceId: "paket_baslangic_50",
                 color: Colors.blueAccent,
                 icon: Icons.layers,
               ),
@@ -393,8 +402,8 @@ class _ShopMenuState extends State<ShopMenu>
                 scale: _pulseAnimation,
                 child: _buildPackCard(
                   title: "POPULAR",
-                  amount: "5,000",
-                  priceId: "timeless_coin_pack_pro",
+                  amount: "250",
+                  priceId: "paket_pro_250",
                   color: Colors.purpleAccent,
                   icon: Icons.diamond,
                   isBestValue: true,
@@ -408,8 +417,8 @@ class _ShopMenuState extends State<ShopMenu>
           width: double.infinity,
           child: _buildPackCard(
             title: "LEGENDARY",
-            amount: "15,000",
-            priceId: "timeless_coin_pack_mega",
+            amount: "1,000",
+            priceId: "paket_mega_1000",
             color: Colors.amberAccent,
             icon: Icons.auto_awesome,
             isWide: true,
@@ -430,6 +439,7 @@ class _ShopMenuState extends State<ShopMenu>
   }) {
     return GestureDetector(
       onTap: () {
+        // --- DÜZELTME: PurchaseManager ÇAĞRISI ---
         PurchaseManager.buyProduct(priceId);
       },
       child: Stack(
@@ -509,15 +519,10 @@ class _ShopMenuState extends State<ShopMenu>
   }
 
   String _getPrice(String productId) {
-    // Gerçekçi Fiyatlandırma (Kur ve Kristal değerine göre)
-    if (productId == PurchaseManager.idCoinPack1) {
-      return "₺39.99"; // 1000 Kristal
-    }
-    if (productId == "timeless_coin_pack_pro") return "₺149.99"; // 5000 Kristal
-    if (productId == "timeless_coin_pack_mega") {
-      return "₺399.99"; // 15000 Kristal
-    }
-    if (productId == PurchaseManager.idRemoveAds) return "₺79.99";
+    if (productId == "paket_baslangic_50") return "₺34.99";
+    if (productId == "paket_pro_250") return "₺149.99";
+    if (productId == "paket_mega_1000") return "₺499.99";
+    if (productId == "remove_ads") return "₺79.99";
     return "...";
   }
 }

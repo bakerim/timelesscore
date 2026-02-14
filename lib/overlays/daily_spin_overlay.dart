@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Titreşim efekti için
+import 'package:flutter/foundation.dart';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
 
@@ -13,116 +15,141 @@ class DailySpinOverlay extends StatefulWidget {
 }
 
 class _DailySpinOverlayState extends State<DailySpinOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  // Çark Dilimleri (Ödüller)
-  final List<int> _rewards = [5, 10, 20, 50, 100, 250];
-  final List<Color> _colors = [
-    Colors.blueAccent,
-    Colors.purpleAccent,
-    Colors.greenAccent,
-    Colors.orangeAccent,
-    Colors.redAccent,
-    Colors.amber
-  ];
+    with TickerProviderStateMixin {
+  late AnimationController _spinController;
+  late Animation<double> _spinAnimation;
+  late AnimationController _pulseController;
 
   bool _isSpinning = false;
-  double _currentRotation = 0;
+  late bool canFree;
+  double _currentAngle = 0;
+
+  // Çarktaki efsanevi ödüller ve neon renkleri
+  final List<Map<String, dynamic>> rewards = [
+    {'amount': 1, 'color': Colors.blueAccent},
+    {'amount': 3, 'color': Colors.purpleAccent},
+    {'amount': 5, 'color': Colors.greenAccent},
+    {'amount': 10, 'color': Colors.orangeAccent},
+    {'amount': 15, 'color': Colors.redAccent},
+    {'amount': 25, 'color': Colors.amberAccent}, // Büyük İkramiye
+  ];
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4), // 4 Saniye dönecek
-    );
+    // DataManager'da "bugün çevirdi mi?" kontrolü olduğunu varsayıyoruz.
+    // Yoksa bile bu değişken üzerinden UI akışını kusursuz yönetir.
+    canFree = DataManager.canFreeSpin();
 
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.decelerate);
+    // Çark Animasyonu (Başlangıçta boş durur)
+    _spinController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 4));
+    _spinAnimation =
+        CurvedAnimation(parent: _spinController, curve: Curves.decelerate);
+
+    // Başlık ve Butonlar için nabız (Heyecan) efekti
+    _pulseController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _spinController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
-  void _spinWheel() {
+  // --- ÇARK ÇEVİRME BUTONUNA BASILINCA ---
+  void _handleSpin() {
     if (_isSpinning) return;
 
-    setState(() {
-      _isSpinning = true;
-    });
+    if (canFree) {
+      _startSpin(isFree: true);
+    } else {
+      // Ücretsiz hak bittiyse AdManager devreye girer
+      widget.game.adManager.showRewardedAd(
+          onReward: (amount) => _startSpin(isFree: false),
+          onAdFailed: () {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Bağlantı koptu, reklam yüklenemedi. 📡"),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating));
+          });
+    }
+  }
 
-    // Rastgele bir ödül seç (0 ile 5 arası index)
-    // Şans faktörü: Büyük ödüllerin çıkma ihtimalini düşürebilirsin burada.
-    // Şimdilik tamamen rastgele yapıyoruz.
-    int winningIndex = Random().nextInt(_rewards.length);
+  // --- FİZİKSEL ÇARK DÖNÜŞ MOTORU ---
+  void _startSpin({required bool isFree}) {
+    setState(() => _isSpinning = true);
 
-    // Dönme Hesabı:
-    // 5 tam tur (5 * 2pi) + Hedef dilime kadar olan açı
-    double sectorAngle = 2 * pi / _rewards.length;
-    double targetAngle = 5 * 2 * pi + (winningIndex * sectorAngle);
+    // Ağır bir titreşimle başla (Oyuncuyu uyarır)
+    if (!kIsWeb) HapticFeedback.heavyImpact();
+    widget.game.sesCal('sfx/spin.mp3'); // Eğer ses dosyan varsa
 
-    // Tween güncellemesi
-    _animation = Tween<double>(
-            begin: _currentRotation, end: _currentRotation + targetAngle)
-        .animate(
-            CurvedAnimation(parent: _controller, curve: Curves.fastOutSlowIn));
+    int randomIndex = Random().nextInt(rewards.length);
+    double segmentAngle = (2 * pi) / rewards.length;
 
-    _controller.forward(from: 0).then((_) {
-      setState(() {
-        _currentRotation += targetAngle; // Sonraki çeviriş için açıyı sakla
-        _isSpinning = false;
+    // Çarkın duracağı spesifik açıyı hesapla (Yukarıdaki oka denk gelecek şekilde)
+    // Ekstra 5-10 tam tur atıp sonra hedefe yavaşlasın
+    int extraSpins = 5 + Random().nextInt(5);
+    double targetAngle = (extraSpins * 2 * pi) - (randomIndex * segmentAngle);
 
-        // ÖDÜLÜ VER!
-        int reward =
-            _rewards[_rewards.length - 1 - winningIndex]; // Tersten index
-        _claimReward(reward);
-      });
+    // Önceki turdan kaldığı yerden devam etmesi için
+    double startAngle = _currentAngle;
+    double endAngle = startAngle + targetAngle;
+
+    _spinAnimation = Tween<double>(begin: startAngle, end: endAngle).animate(
+        CurvedAnimation(
+            parent: _spinController,
+            curve: Curves.fastOutSlowIn) // Hızlı başla, çok yavaş dur
+        );
+
+    _spinController.forward(from: 0.0).then((_) {
+      _currentAngle =
+          endAngle % (2 * pi); // Açıyı sıfırla ama görsel konumu koru
+
+      if (isFree) {
+        DataManager.setSpinUsed(); // Ücretsiz hakkı yak
+        setState(
+            () => canFree = false); // UI anında Turuncu (Reklamlı) butona döner
+      }
+
+      _onSpinEnd(rewards[randomIndex]['amount'], rewards[randomIndex]['color']);
     });
   }
 
-  void _claimReward(int amount) {
-    DataManager.totalCoins += amount;
+  // --- ÖDÜL KAZANMA ANI (BÜYÜK COŞKU) ---
+  void _onSpinEnd(int rewardAmount, Color rewardColor) {
+    setState(() => _isSpinning = false);
+
+    // Zengin oluyoruz! Veriyi anında kaydet.
+    DataManager.totalCoins += rewardAmount;
     DataManager.saveData();
+
+    // Oyundaki HUD/Menü üzerindeki elmas referansını GÜNCELLE (Senkronizasyon)
     widget.game.elmasYazisi.text = '💎 ${DataManager.totalCoins}';
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.celebration, color: Colors.amber, size: 50),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("TEBRİKLER!",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24)),
-            const SizedBox(height: 10),
-            Text("+$amount Zaman Kristali Kazandın!",
-                style: const TextStyle(color: Colors.white70)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx); // Dialog kapa
-              widget.game.overlays.remove('DailySpin'); // Overlay kapa
-              widget.game.overlays.add('AnaMenu'); // Ana menüye dön
-            },
-            child: const Text("HARİKA",
-                style: TextStyle(
-                    color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-          )
+    // Telefona ağır bir darbe titreşimi gönder (Ödül hissi)
+    if (!kIsWeb) HapticFeedback.vibrate();
+
+    // Ekranda Efsanevi Bildirim
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(
+        children: [
+          Icon(Icons.diamond_rounded, color: rewardColor, size: 28),
+          const SizedBox(width: 15),
+          Text("+$rewardAmount KRİSTAL KAZANDIN!",
+              style: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1))
         ],
       ),
-    );
+      backgroundColor: Colors.green.shade800,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   @override
@@ -131,176 +158,245 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Blur Arka Plan
+          // --- 1. SİNEMATİK ARKA PLAN ---
           BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: Colors.black.withOpacity(0.8)),
-          ),
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(color: Colors.black.withValues(alpha: 0.88))),
 
           Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  "ŞANS ÇARKI",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2),
-                ),
-                const Text("Günde 1 kez ücretsiz!",
-                    style: TextStyle(color: Colors.amberAccent)),
-                const SizedBox(height: 40),
-
-                // --- ÇARK GÖVDESİ ---
-                SizedBox(
-                  height: 320,
-                  width: 320,
-                  child: Stack(
-                    alignment: Alignment.center,
+            child: Container(
+              width: 360,
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(
+                      color: Colors.cyanAccent.withValues(alpha: 0.3),
+                      width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.cyanAccent.withValues(alpha: 0.15),
+                        blurRadius: 40,
+                        spreadRadius: 5)
+                  ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // --- 2. BAŞLIK VE KURAL BİLDİRİMİ ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // OK İŞARETİ (Tepede Sabit)
-                      const Positioned(
-                        top: 0,
-                        child: Icon(Icons.arrow_drop_down_rounded,
-                            color: Colors.white, size: 50),
-                      ),
-
-                      // DÖNEN KISIM
-                      AnimatedBuilder(
-                        animation: _controller,
-                        builder: (context, child) {
-                          return Transform.rotate(
-                            angle: _animation.value,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color:
-                                            Colors.cyanAccent.withOpacity(0.5),
-                                        blurRadius: 20)
-                                  ]),
-                              child: CustomPaint(
-                                size: const Size(300, 300),
-                                painter: WheelPainter(
-                                    rewards: _rewards, colors: _colors),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      // ORTA BUTON (SPIN)
-                      GestureDetector(
-                        onTap: _spinWheel,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
+                      const Icon(Icons.casino_rounded,
+                          color: Colors.amberAccent, size: 36),
+                      const SizedBox(width: 10),
+                      const Text("KADER ÇARKI",
+                          style: TextStyle(
                               color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    blurRadius: 10)
-                              ],
-                              border: Border.all(
-                                  color: Colors.purpleAccent, width: 4)),
-                          child: Center(
-                            child: Text(
-                              _isSpinning ? "..." : "ÇEVİR",
-                              style: const TextStyle(
-                                  color: Colors.purple,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16),
-                            ),
-                          ),
-                        ),
-                      ),
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2)),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 15),
 
-                const SizedBox(height: 50),
+                  // KURAL METNİ: Net ve adil!
+                  AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 15, vertical: 8),
+                          decoration: BoxDecoration(
+                              color: canFree
+                                  ? Colors.green.withValues(alpha: 0.2)
+                                  : Colors.orange.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                  color: canFree
+                                      ? Colors.greenAccent
+                                      : Colors.orangeAccent)),
+                          child: Text(
+                            canFree
+                                ? "Bugünkü ÜCRETSİZ çevirme hakkın hazır!"
+                                : "Ücretsiz hakkını kullandın.\nReklam izleyerek tekrar çevir!",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: canFree
+                                    ? Colors.greenAccent
+                                    : Colors.orangeAccent,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(
+                                      color: canFree
+                                          ? Colors.green
+                                          : Colors.orange,
+                                      blurRadius: 10)
+                                ]),
+                          ),
+                        );
+                      }),
 
-                // KAPAT BUTONU
-                if (!_isSpinning)
+                  const SizedBox(height: 35),
+
+                  // --- 3. NEON ÇARK GÖRSELİ ---
+                  _buildWheelGraphic(),
+
+                  const SizedBox(height: 45),
+
+                  // --- 4. AKILLI (DİNAMİK) BUTON ---
+                  SizedBox(
+                    width: double.infinity,
+                    height: 65,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSpinning ? null : _handleSpin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canFree
+                            ? Colors.green.shade600
+                            : Colors.orange.shade700,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                        elevation: _isSpinning ? 0 : 10,
+                        shadowColor:
+                            canFree ? Colors.greenAccent : Colors.orangeAccent,
+                      ),
+                      icon: Icon(
+                          _isSpinning
+                              ? Icons.hourglass_top_rounded
+                              : (canFree
+                                  ? Icons.autorenew_rounded
+                                  : Icons.ondemand_video_rounded),
+                          size: 26),
+                      label: Text(
+                          _isSpinning
+                              ? "DÖNÜYOR..."
+                              : (canFree
+                                  ? "ÜCRETSİZ ÇEVİR"
+                                  : "REKLAM İZLE & ÇEVİR"),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              letterSpacing: 1)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // --- 5. GÜVENLİ ÇIKIŞ KÖPRÜSÜ (SIFIR SİYAH EKRAN) ---
                   TextButton.icon(
-                    onPressed: () {
-                      widget.game.overlays.remove('DailySpin');
-                      widget.game.overlays.add('AnaMenu');
-                    },
-                    icon: const Icon(Icons.close, color: Colors.white54),
-                    label: const Text("Kapat",
-                        style: TextStyle(color: Colors.white54)),
+                    onPressed:
+                        _isSpinning ? null : () => widget.game.anaMenuyeDon(),
+                    icon: const Icon(Icons.close_rounded,
+                        color: Colors.white54, size: 20),
+                    label: const Text("ÇIK VE ANA MENÜYE DÖN",
+                        style: TextStyle(
+                            color: Colors.white54,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1)),
                   )
-              ],
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-// Çarkı Çizen Ressam Sınıfı
-class WheelPainter extends CustomPainter {
-  final List<int> rewards;
-  final List<Color> colors;
+  // ==========================================
+  // ROULETTE (ÇARK) ÇİZİM MOTORU
+  // ==========================================
+  Widget _buildWheelGraphic() {
+    return SizedBox(
+      height: 260,
+      width: 260,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          // Dönen Çark Gövdesi
+          AnimatedBuilder(
+              animation: _spinAnimation,
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle: _spinAnimation.value,
+                  child: Container(
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF1E293B),
+                        border: Border.all(
+                            color: Colors.cyanAccent.withValues(alpha: 0.5),
+                            width: 5),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.cyanAccent.withValues(alpha: 0.2),
+                              blurRadius: 30,
+                              spreadRadius: 5),
+                          const BoxShadow(color: Colors.black54, blurRadius: 20)
+                        ]),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: List.generate(rewards.length, (index) {
+                        double angle = (2 * pi * index) / rewards.length;
+                        return Transform.rotate(
+                          angle: angle,
+                          child: Align(
+                              alignment: Alignment.topCenter,
+                              child: Padding(
+                                  padding: const EdgeInsets.only(top: 15),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text("${rewards[index]['amount']}",
+                                          style: TextStyle(
+                                              color: rewards[index]['color'],
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900)),
+                                      Icon(Icons.diamond_rounded,
+                                          color: rewards[index]['color'],
+                                          size: 18),
+                                    ],
+                                  ))),
+                        );
+                      }),
+                    ),
+                  ),
+                );
+              }),
 
-  WheelPainter({required this.rewards, required this.colors});
+          // Çark İbresi (Ok) - Yukardan Aşağı Gösterir
+          Positioned(
+              top: -15,
+              child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    return Icon(Icons.arrow_drop_down_circle_rounded,
+                        color: Colors.redAccent,
+                        size: 45,
+                        shadows: [
+                          Shadow(
+                              color: Colors.redAccent.withValues(alpha: 0.8),
+                              blurRadius: 10)
+                        ]);
+                  })),
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    double anglePerSlice = 2 * pi / rewards.length;
-    double radius = size.width / 2;
-    Offset center = Offset(size.width / 2, size.height / 2);
-
-    for (int i = 0; i < rewards.length; i++) {
-      final paint = Paint()..color = colors[i % colors.length];
-
-      // Dilimi Çiz
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        i * anglePerSlice - (pi / 2), // -90 derece ofset ile tepeden başlat
-        anglePerSlice,
-        true,
-        paint,
-      );
-
-      // Yazıyı Çiz (Matematiksel Döndürme)
-      _drawText(canvas, size, rewards[i].toString(), i * anglePerSlice,
-          anglePerSlice);
-    }
+          // Çark Göbek (Merkez) Pimi
+          Positioned(
+              top: 115, // 260'ın ortası eksi yarıçap
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.cyanAccent, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 5)
+                    ]),
+              ))
+        ],
+      ),
+    );
   }
-
-  void _drawText(Canvas canvas, Size size, String text, double startAngle,
-      double sweepAngle) {
-    final textStyle = const TextStyle(
-        color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold);
-    final textSpan = TextSpan(text: text, style: textStyle);
-    final textPainter =
-        TextPainter(text: textSpan, textDirection: TextDirection.ltr);
-    textPainter.layout();
-
-    double angle = startAngle - (pi / 2) + (sweepAngle / 2);
-    double radius = size.width / 2 * 0.7; // Merkeze uzaklık
-
-    double x = (size.width / 2) + radius * cos(angle);
-    double y = (size.height / 2) + radius * sin(angle);
-
-    canvas.save();
-    canvas.translate(x, y);
-    canvas.rotate(angle + (pi / 2)); // Yazıyı merkeze bakacak şekilde döndür
-    textPainter.paint(
-        canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

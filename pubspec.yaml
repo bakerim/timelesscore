@@ -11,21 +11,21 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   
-  # Oyun Motoru & Ses
-  flame: ^1.18.0
-  flame_audio: ^2.1.8
+  # --- Oyun Motoru & Ses (AJANIN İSTEDİĞİ GİBİ GÜNCELLENDİ) ---
+  flame: ^1.20.0          # 1.18'den 1.20'ye yükseltildi (Kritik Performans ve Fizik Güncellemesi)
+  flame_audio: ^2.2.0     # Flame 1.20 ile tam uyumlu çalışması için yükseltildi
   
-  # Gelir Modelleri (Reklam & Satın Alma)
+  # --- Gelir Modelleri (Reklam & Satın Alma) ---
   google_mobile_ads: ^7.0.0
-  in_app_purchase: ^3.2.0  # <-- YENİ EKLENEN
+  in_app_purchase: ^3.2.0  # Yeni eklediğimiz Satın Alma motoru
   
-  # Veri Saklama
+  # --- Veri Saklama ---
   shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^3.0.0    # Kod kalite kontrolcüsü modern sürüme çekildi
   flutter_launcher_icons: ^0.13.1
   flutter_native_splash: ^2.4.0
 
@@ -36,7 +36,7 @@ flutter:
     - assets/audio/sfx/
     - assets/translations/
 
-# İkon Ayarları
+# --- İkon Ayarları ---
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
@@ -55,7 +55,7 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/images/icon.png"
 
-# Açılış Ekranı (Splash)
+# --- Açılış Ekranı (Splash) ---
 flutter_native_splash:
   color: "#000000"
   image: assets/images/splash.jpg

@@ -85,7 +85,7 @@ class _GameScreenState extends State<GameScreen> {
           overlayBuilderMap: {
             'AnaMenu': (context, game) => MainMenu(game: game as TimelessGame),
             'GameOver': (context, game) =>
-                GameOverOverlay(game: game as TimelessGame),
+                GameOver(game: game as TimelessGame),
             'PauseMenu': (context, game) =>
                 PauseMenu(game: game as TimelessGame),
             'Shop': (context, game) => ShopMenu(game: game as TimelessGame),

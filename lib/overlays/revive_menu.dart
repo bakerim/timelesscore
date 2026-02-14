@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../game/timeless_game.dart'; // AdManager buradan erişilecek
+import 'dart:ui';
+import '../game/timeless_game.dart';
 import '../core/localization.dart';
 
 class ReviveMenu extends StatefulWidget {
@@ -17,8 +18,7 @@ class _ReviveMenuState extends State<ReviveMenu>
   late Timer _timer;
   late AnimationController _controller;
 
-  // Reklam durumu artık AdManager'dan sorulacak, burada tutmaya gerek yok
-  bool _isAdReady = false;
+  bool _canTap = false;
 
   @override
   void initState() {
@@ -27,26 +27,20 @@ class _ReviveMenuState extends State<ReviveMenu>
         AnimationController(vsync: this, duration: const Duration(seconds: 1))
           ..repeat(reverse: true);
 
-    // 1. Oyuna "Reklam Yüklemeyi Dene" emri veriyoruz (Eğer zaten yüklüyse sorun yok)
-    // AdManager kendi içinde kontrol eder.
-    widget.game.adManager.loadRewardedAd();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _canTap = true);
+    });
 
-    // 2. Zamanlayıcı hem geri sayımı yapar hem de reklamın durumunu kontrol eder
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
 
-      // Her saniye AdManager'a sor: Reklam hazır mı?
-      bool ready = widget.game.adManager.isRewardedAdReady;
-
       setState(() {
-        _isAdReady = ready;
         if (_counter > 0) {
           _counter--;
         } else {
-          // Süre doldu, reklam izlemediyse bitir
           timer.cancel();
           widget.game.vazgecVeBitir();
         }
@@ -54,25 +48,13 @@ class _ReviveMenuState extends State<ReviveMenu>
     });
   }
 
-  // --- REKLAM GÖSTERME FONKSİYONU (DÜZELTİLDİ) ---
   void _showReviveAd() {
-    // Timer'ı durdur ki arkada süre akmasın
-    _timer.cancel();
+    if (!_canTap) return;
 
-    // AdManager üzerindeki fonksiyonu DOĞRU parametrelerle çağırıyoruz
-    widget.game.adManager.showRewardedAd(
-        // 1. Parametre: Ödül Kazanıldığında
-        onReward: (amount) {
-      debugPrint("Ödül kazanıldı: $amount");
-      widget.game.devamEtIslemi();
-    },
-        // 2. Parametre: Hata Olduğunda
-        onAdFailed: () {
-      // Reklam açılamadıysa kullanıcıyı mağdur etme, oyunu bitir veya uyarı ver
-      // Biz burada garantici olup oyunu bitiriyoruz (veya yeniden deneteibilirsin)
-      debugPrint("Reklam gösterilemedi.");
-      widget.game.vazgecVeBitir();
-    });
+    _timer.cancel();
+    setState(() => _canTap = false);
+
+    widget.game.reklamIzleVeCanlan();
   }
 
   @override
@@ -85,96 +67,109 @@ class _ReviveMenuState extends State<ReviveMenu>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.85),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              Dil.get("ikinci_sans"),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  shadows: [Shadow(color: Colors.greenAccent, blurRadius: 10)]),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              Dil.get("devam_et_aciklama"),
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            const SizedBox(height: 30),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // 1. ARKA PLAN BLUR
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: Colors.black.withOpacity(0.85)),
+          ),
 
-            // GERİ SAYIM HALKASI
-            Stack(
-              alignment: Alignment.center,
+          // 2. İÇERİK
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: CircularProgressIndicator(
-                    value: _counter / 5,
-                    color: Colors.cyanAccent,
-                    backgroundColor: Colors.white10,
-                    strokeWidth: 10,
-                    strokeCap: StrokeCap.round,
-                  ),
-                ),
                 Text(
-                  "$_counter",
+                  Dil.get("ikinci_sans"), // HATA VEREN KISIM TEMİZLENDİ
                   style: const TextStyle(
-                      color: Colors.cyanAccent,
-                      fontSize: 60,
-                      fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      shadows: [
+                        Shadow(color: Colors.greenAccent, blurRadius: 15)
+                      ]),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  Dil.get("devam_et_aciklama"), // HATA VEREN KISIM TEMİZLENDİ
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 40),
+
+                // --- GERİ SAYIM HALKASI ---
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      height: 140,
+                      child: CircularProgressIndicator(
+                        value: _counter / 5,
+                        color: Colors.cyanAccent,
+                        backgroundColor: Colors.white10,
+                        strokeWidth: 12,
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Text(
+                      "$_counter",
+                      style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 60,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Colors.cyanAccent, blurRadius: 10)
+                          ]),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 50),
+
+                // --- AKILLI REKLAM İZLE BUTONU ---
+                _buildReviveButton(),
+
+                const SizedBox(height: 25),
+
+                // --- VAZGEÇ BUTONU ---
+                TextButton(
+                  onPressed: () {
+                    _timer.cancel();
+                    widget.game.vazgecVeBitir();
+                  },
+                  child: Text(Dil.get("vazgec"), // HATA VEREN KISIM TEMİZLENDİ
+                      style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1)),
                 ),
               ],
             ),
-
-            const SizedBox(height: 40),
-
-            // --- AKILLI REKLAM İZLE BUTONU ---
-            _buildReviveButton(),
-
-            const SizedBox(height: 25),
-
-            // VAZGEÇ BUTONU
-            TextButton(
-              onPressed: () {
-                widget.game.vazgecVeBitir();
-              },
-              child: Text(Dil.get("vazgec"),
-                  style: const TextStyle(color: Colors.white38, fontSize: 16)),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildReviveButton() {
-    // Buton metni ve durumu
-    String buttonText = Dil.get("reklam_yukleniyor");
-    Color buttonColor = Colors.grey.shade800;
-    IconData buttonIcon = Icons.hourglass_empty_rounded;
-    VoidCallback? onPressedAction; // Başlangıçta null (tıklanamaz)
-
-    if (_isAdReady) {
-      // Reklam Hazırsa
-      buttonText = Dil.get("izle_devam_et");
-      buttonColor = Colors.greenAccent.shade700;
-      buttonIcon = Icons.play_circle_fill_rounded;
-      onPressedAction = () => _showReviveAd();
-    } else {
-      // Reklam Henüz Hazır Değilse (Yükleniyor)
-      buttonText = Dil.get("reklam_yukleniyor");
-    }
+    // HATA VEREN KISIMLAR TEMİZLENDİ
+    String buttonText =
+        _canTap ? Dil.get("izle_devam_et") : Dil.get("reklam_yukleniyor");
+    Color buttonColor =
+        _canTap ? Colors.greenAccent.shade700 : Colors.grey.shade800;
+    IconData buttonIcon = _canTap
+        ? Icons.play_circle_fill_rounded
+        : Icons.hourglass_empty_rounded;
 
     Widget buttonChild = ElevatedButton.icon(
-      onPressed: onPressedAction,
+      onPressed: _canTap ? _showReviveAd : null,
       icon: Icon(buttonIcon, size: 32),
       label: Text(buttonText,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       style: ElevatedButton.styleFrom(
         backgroundColor: buttonColor,
         foregroundColor: Colors.white,
@@ -186,8 +181,7 @@ class _ReviveMenuState extends State<ReviveMenu>
       ),
     );
 
-    // Sadece reklam hazırsa parlama efekti ekle
-    if (_isAdReady) {
+    if (_canTap) {
       return AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {

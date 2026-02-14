@@ -1,144 +1,82 @@
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataManager {
   static late SharedPreferences _prefs;
 
-  // Anahtarlar
-  static const String keyHighScore = 'highScore';
-  static const String keyTotalCoins = 'totalCoins';
-  static const String keyRemoveAds = 'removeAds';
-  static const String keyOwnedSkins = 'ownedSkins';
-  static const String keySelectedSkin = 'selectedSkin';
-
-  // YENİ: Günlük Ödül Anahtarları
-  static const String keyLastLogin = 'lastLogin';
-  static const String keyStreak = 'dailyStreak';
-
-  // Veriler
-  static int highScore = 0;
+  // --- OYUNCU VERİLERİ ---
   static int totalCoins = 0;
-  static bool isAdsRemoved = false;
-  static List<String> ownedSkins = ['0'];
-  static int selectedSkinId = 0;
+  static int maxLevel = 1;
+  static double currentXp = 0.0; // EKSİK OLAN DAMAR EKLENDİ
+  static bool isAdsRemoved = false; // YENİ: Reklam kaldırma durumu
+  static int highScore = 0;
 
-  // YENİ: Günlük Ödül Verileri
-  static String lastLoginDate = "";
-  static int dailyStreak = 0;
+  // --- AYARLAR ---
+  static bool isSoundOn = true;
+  static bool isMusicOn = true;
+
+  // --- GÜNLÜK ÇARK KONTROLÜ ---
+  static String lastSpinDate = "";
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
 
-    // Mevcut verileri çek
-    highScore = _prefs.getInt(keyHighScore) ?? 0;
-    totalCoins = _prefs.getInt(keyTotalCoins) ?? 0;
-    isAdsRemoved = _prefs.getBool(keyRemoveAds) ?? false;
-    ownedSkins = _prefs.getStringList(keyOwnedSkins) ?? ['0'];
-    selectedSkinId = _prefs.getInt(keySelectedSkin) ?? 0;
+    // Verileri Yükle
+    totalCoins = _prefs.getInt('totalCoins') ?? 0;
+    maxLevel = _prefs.getInt('maxLevel') ?? 1;
+    currentXp = _prefs.getDouble('currentXp') ?? 0.0; // YÜKLEME EKLENDİ
+    isAdsRemoved = _prefs.getBool('isAdsRemoved') ?? false;
+    highScore = _prefs.getInt('highScore') ?? 0;
 
-    // YENİ: Tarih verilerini çek
-    lastLoginDate = _prefs.getString(keyLastLogin) ?? "";
-    dailyStreak = _prefs.getInt(keyStreak) ?? 0;
+    isSoundOn = _prefs.getBool('isSoundOn') ?? true;
+    isMusicOn = _prefs.getBool('isMusicOn') ?? true;
+
+    lastSpinDate = _prefs.getString('lastSpinDate') ?? "";
   }
 
-  // --- YENİ EKLENEN FONKSİYON ---
-  // TimelessGame içinden çağırıyoruz. Anlık para değişimlerini kaydeder.
   static Future<void> saveData() async {
-    await _prefs.setInt(keyTotalCoins, totalCoins);
-    // İleride başka verileri de buraya ekleyebilirsin
-    await _prefs.setInt(keyHighScore, highScore);
+    // Verileri Kaydet
+    await _prefs.setInt('totalCoins', totalCoins);
+    await _prefs.setInt('maxLevel', maxLevel);
+    await _prefs.setDouble('currentXp', currentXp); // KAYDETME EKLENDİ
   }
-  // ------------------------------
 
   static Future<void> saveScore(int score) async {
-    int earnedCoins = (score / 10).floor();
-    if (earnedCoins > 0) {
-      totalCoins += earnedCoins;
-      await _prefs.setInt(keyTotalCoins, totalCoins);
-    }
-
     if (score > highScore) {
       highScore = score;
-      await _prefs.setInt(keyHighScore, highScore);
+      await _prefs.setInt('highScore', highScore);
     }
   }
 
+  static Future<void> updateMaxLevel(int level) async {
+    if (level > maxLevel) {
+      maxLevel = level;
+      await saveData();
+    }
+  }
+
+  static void setSound(bool value) {
+    isSoundOn = value;
+    _prefs.setBool('isSoundOn', isSoundOn);
+  }
+
+  static void setMusic(bool value) {
+    isMusicOn = value;
+    _prefs.setBool('isMusicOn', isMusicOn);
+  }
+
+  // --- GÜNLÜK ÇARK MANTIĞI ---
+  static bool canFreeSpin() {
+    String today = DateTime.now().toIso8601String().split('T')[0];
+    return lastSpinDate != today;
+  }
+
+  static Future<void> setSpinUsed() async {
+    String today = DateTime.now().toIso8601String().split('T')[0];
+    lastSpinDate = today;
+    await _prefs.setString('lastSpinDate', lastSpinDate);
+  }
   static Future<void> removeAds() async {
-    isAdsRemoved = true;
-    await _prefs.setBool(keyRemoveAds, true);
-  }
-
-  static Future<bool> buySkin(int skinId, int price) async {
-    if (totalCoins >= price && !ownedSkins.contains(skinId.toString())) {
-      totalCoins -= price;
-      ownedSkins.add(skinId.toString());
-      await _prefs.setInt(keyTotalCoins, totalCoins);
-      await _prefs.setStringList(keyOwnedSkins, ownedSkins);
-      return true;
-    }
-    return false;
-  }
-
-  static Future<void> selectSkin(int skinId) async {
-    if (ownedSkins.contains(skinId.toString())) {
-      selectedSkinId = skinId;
-      await _prefs.setInt(keySelectedSkin, selectedSkinId);
-    }
-  }
-
-  // YENİ: Günlük Ödül Kontrol Mekanizması
-  static Future<Map<String, dynamic>> checkDailyReward() async {
-    DateTime now = DateTime.now();
-    // Tarihi YYYY-MM-DD formatına çeviriyoruz
-    String todayStr = "${now.year}-${now.month}-${now.day}";
-
-    // Eğer bugün zaten girdiyse ödül yok
-    if (lastLoginDate == todayStr) {
-      return {'canClaim': false, 'streak': dailyStreak};
-    }
-
-    // Dünü bul
-    DateTime yesterday = now.subtract(const Duration(days: 1));
-    String yesterdayStr =
-        "${yesterday.year}-${yesterday.month}-${yesterday.day}";
-
-    // Eğer son giriş dün ise zinciri artır, yoksa sıfırla
-    if (lastLoginDate == yesterdayStr) {
-      dailyStreak++;
-    } else {
-      dailyStreak = 1;
-    }
-
-    // Tarihi güncelle ve kaydet
-    lastLoginDate = todayStr;
-    await _prefs.setString(keyLastLogin, lastLoginDate);
-    await _prefs.setInt(keyStreak, dailyStreak);
-
-    // Ödül Miktarı: Temel 50 + (Gün * 10). Max 500.
-    int rewardAmount = 50 + (dailyStreak * 10);
-    if (rewardAmount > 500) rewardAmount = 500;
-
-    // Parayı ekle
-    totalCoins += rewardAmount;
-    await _prefs.setInt(keyTotalCoins, totalCoins);
-
-    return {'canClaim': true, 'streak': dailyStreak, 'reward': rewardAmount};
-  }
-
-  static Color getSkinColor() {
-    switch (selectedSkinId) {
-      case 0:
-        return Colors.cyanAccent;
-      case 1:
-        return Colors.purpleAccent;
-      case 2:
-        return Colors.amberAccent;
-      case 3:
-        return Colors.redAccent;
-      case 4:
-        return const Color(0xFF00FF00);
-      default:
-        return Colors.cyanAccent;
-    }
-  }
+  isAdsRemoved = true;
+  await _prefs.setBool('isAdsRemoved', true);
+}
 }

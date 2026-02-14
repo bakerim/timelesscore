@@ -1,56 +1,51 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import '../core/localization.dart'; // <-- GERİ GELDİ!
+import 'package:flutter/foundation.dart';
+import 'data_manager.dart';
 
 class ProgressManager {
+  // Singleton yapısı (Projenin neresinden çağırırsan çağır, hep aynı veriye ulaşırsın)
   static final ProgressManager _instance = ProgressManager._internal();
   factory ProgressManager() => _instance;
   ProgressManager._internal();
 
-  int _level = 1;
-  int _currentXp = 0;
+  // --- REAKTİF DEĞİŞKENLER (TÜM ARAYÜZLER BUNLARI DİNLEYECEK) ---
+  final ValueNotifier<int> currentLevel = ValueNotifier<int>(1);
+  final ValueNotifier<double> currentXp = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> xpToNextLevel = ValueNotifier<double>(1000.0);
 
-  int get level => _level;
-  int get currentXp => _currentXp;
-
-  int get maxXpForCurrentLevel => _level * 1000;
-
+  // Sistemi Başlat ve Kayıtlı Veriyi Yükle
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _level = prefs.getInt('player_level') ?? 1;
-    _currentXp = prefs.getInt('player_xp') ?? 0;
+    // DataManager'dan en son kaydedilen verileri çekiyoruz
+    currentLevel.value = DataManager.maxLevel;
+    currentXp.value = DataManager.currentXp;
+    _calculateNextLevelXp();
   }
 
-  Future<void> addXp(int amount) async {
-    _currentXp += amount;
+  // Seviye hesaplama matematiği (Her level daha da zorlaşır)
+  void _calculateNextLevelXp() {
+    // Örnek: Level 1 -> 1500 XP, Level 2 -> 2000 XP hedefine sahip olur.
+    xpToNextLevel.value = 1000.0 + (currentLevel.value * 500.0);
+  }
 
-    while (_currentXp >= maxXpForCurrentLevel) {
-      _currentXp -= maxXpForCurrentLevel;
-      _level++;
+  // Puan kazanıldığında çağrılır, barı her yerde anında doldurur
+  Future<void> addXp(int amount) async {
+    currentXp.value += amount;
+
+    // Seviye atlama kontrolü (Çok puan alırsa birden fazla level atlayabilir)
+    while (currentXp.value >= xpToNextLevel.value) {
+      currentXp.value -= xpToNextLevel.value;
+      currentLevel.value++;
+      _calculateNextLevelXp();
     }
 
-    await _saveProgress();
+    // Veritabanına kalıcı olarak kaydet
+    DataManager.updateMaxLevel(currentLevel.value);
+    DataManager.currentXp = currentXp.value;
+    await DataManager.saveData();
   }
 
-  // --- ARTIK DİL SİSTEMİNDEN ÇEKİYORUZ ---
-  String getTitle() {
-    if (_level < 5) return Dil.get('rutbe_acemi');
-    if (_level < 10) return Dil.get('rutbe_cirak');
-    if (_level < 20) return Dil.get('rutbe_kasif');
-    if (_level < 30) return Dil.get('rutbe_usta');
-    if (_level < 50) return Dil.get('rutbe_efsane');
-    if (_level < 80) return Dil.get('rutbe_zaman_yocusu');
-    return Dil.get('rutbe_zaman_lordu');
-  }
-
-  Future<void> _saveProgress() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('player_level', _level);
-    await prefs.setInt('player_xp', _currentXp);
-  }
-
-  Future<void> resetProgress() async {
-    _level = 1;
-    _currentXp = 0;
-    await _saveProgress();
+  // İlerleme yüzdesini (0.0 ile 1.0 arası) döndürür (Barların UI çizimi için kritik)
+  double get progressPercentage {
+    if (xpToNextLevel.value == 0) return 0.0;
+    return (currentXp.value / xpToNextLevel.value).clamp(0.0, 1.0);
   }
 }
