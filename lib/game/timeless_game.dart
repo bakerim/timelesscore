@@ -139,8 +139,10 @@ class TimelessGame extends FlameGame
 
   @override
   void render(Canvas canvas) {
-    double sy = hudHeight + 20, ey = size.y - safeBottomArea;
-    int r = ((ey - sy) / gridSize).floor(), col = (size.x / gridSize).floor();
+    // Hizalama Matematği: hudHeight + 10 (Boşluk) üzerinden hesaplanmalı
+    double sy = hudHeight + 10, ey = size.y - safeBottomArea;
+    int r = ((ey - sy) / gridSize).floor();
+    int col = (size.x / gridSize).floor();
     double off = (size.x - col * gridSize) / 2;
 
     for (int i = 0; i < col; i++) {
@@ -186,6 +188,11 @@ class TimelessGame extends FlameGame
 
     if (!hizliIndiMi) {
       puanEkle(1);
+    }
+
+    // Zaman Bükücü Düzeltmesi: Blok katılaştığı an hızı kontrol et
+    if (!isTimeSlowed) {
+      oyunHizi = normalOyunHizi;
     }
 
     if (k.position.y <= hudHeight + gridSize) {
