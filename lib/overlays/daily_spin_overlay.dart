@@ -1,10 +1,11 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Titreşim efekti için
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
+import '../core/audio_manager.dart'; // YENİ: Ses Bakanlığını ekledik!
 
 class DailySpinOverlay extends StatefulWidget {
   final TimelessGame game;
@@ -37,17 +38,13 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
   @override
   void initState() {
     super.initState();
-    // DataManager'da "bugün çevirdi mi?" kontrolü olduğunu varsayıyoruz.
-    // Yoksa bile bu değişken üzerinden UI akışını kusursuz yönetir.
     canFree = DataManager.canFreeSpin();
 
-    // Çark Animasyonu (Başlangıçta boş durur)
     _spinController =
         AnimationController(vsync: this, duration: const Duration(seconds: 4));
     _spinAnimation =
         CurvedAnimation(parent: _spinController, curve: Curves.decelerate);
 
-    // Başlık ve Butonlar için nabız (Heyecan) efekti
     _pulseController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1500))
       ..repeat(reverse: true);
@@ -60,14 +57,12 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
     super.dispose();
   }
 
-  // --- ÇARK ÇEVİRME BUTONUNA BASILINCA ---
   void _handleSpin() {
     if (_isSpinning) return;
 
     if (canFree) {
       _startSpin(isFree: true);
     } else {
-      // Ücretsiz hak bittiyse AdManager devreye girer
       widget.game.adManager.showRewardedAd(
           onReward: (amount) => _startSpin(isFree: false),
           onAdFailed: () {
@@ -79,61 +74,48 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
     }
   }
 
-  // --- FİZİKSEL ÇARK DÖNÜŞ MOTORU ---
   void _startSpin({required bool isFree}) {
     setState(() => _isSpinning = true);
 
-    // Ağır bir titreşimle başla (Oyuncuyu uyarır)
     if (!kIsWeb) HapticFeedback.heavyImpact();
-    widget.game.sesCal('sfx/spin.mp3'); // Eğer ses dosyan varsa
+
+    // YENİ: Sesi AudioManager ile çağırıyoruz!
+    AudioManager.playSfx('sfx/spin.mp3');
 
     int randomIndex = Random().nextInt(rewards.length);
     double segmentAngle = (2 * pi) / rewards.length;
 
-    // Çarkın duracağı spesifik açıyı hesapla (Yukarıdaki oka denk gelecek şekilde)
-    // Ekstra 5-10 tam tur atıp sonra hedefe yavaşlasın
     int extraSpins = 5 + Random().nextInt(5);
     double targetAngle = (extraSpins * 2 * pi) - (randomIndex * segmentAngle);
 
-    // Önceki turdan kaldığı yerden devam etmesi için
     double startAngle = _currentAngle;
     double endAngle = startAngle + targetAngle;
 
     _spinAnimation = Tween<double>(begin: startAngle, end: endAngle).animate(
-        CurvedAnimation(
-            parent: _spinController,
-            curve: Curves.fastOutSlowIn) // Hızlı başla, çok yavaş dur
-        );
+        CurvedAnimation(parent: _spinController, curve: Curves.fastOutSlowIn));
 
     _spinController.forward(from: 0.0).then((_) {
-      _currentAngle =
-          endAngle % (2 * pi); // Açıyı sıfırla ama görsel konumu koru
+      _currentAngle = endAngle % (2 * pi);
 
       if (isFree) {
-        DataManager.setSpinUsed(); // Ücretsiz hakkı yak
-        setState(
-            () => canFree = false); // UI anında Turuncu (Reklamlı) butona döner
+        DataManager.setSpinUsed();
+        setState(() => canFree = false);
       }
 
       _onSpinEnd(rewards[randomIndex]['amount'], rewards[randomIndex]['color']);
     });
   }
 
-  // --- ÖDÜL KAZANMA ANI (BÜYÜK COŞKU) ---
   void _onSpinEnd(int rewardAmount, Color rewardColor) {
     setState(() => _isSpinning = false);
 
-    // Zengin oluyoruz! Veriyi anında kaydet.
     DataManager.totalCoins += rewardAmount;
     DataManager.saveData();
 
-    // Oyundaki HUD/Menü üzerindeki elmas referansını GÜNCELLE (Senkronizasyon)
     widget.game.elmasYazisi.text = '💎 ${DataManager.totalCoins}';
 
-    // Telefona ağır bir darbe titreşimi gönder (Ödül hissi)
     if (!kIsWeb) HapticFeedback.vibrate();
 
-    // Ekranda Efsanevi Bildirim
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Row(
         children: [
@@ -158,11 +140,9 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // --- 1. SİNEMATİK ARKA PLAN ---
           BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(color: Colors.black.withValues(alpha: 0.88))),
-
           Center(
             child: Container(
               width: 360,
@@ -182,14 +162,13 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- 2. BAŞLIK VE KURAL BİLDİRİMİ ---
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.casino_rounded,
+                      Icon(Icons.casino_rounded,
                           color: Colors.amberAccent, size: 36),
-                      const SizedBox(width: 10),
-                      const Text("KADER ÇARKI",
+                      SizedBox(width: 10),
+                      Text("KADER ÇARKI",
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -198,8 +177,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
                     ],
                   ),
                   const SizedBox(height: 15),
-
-                  // KURAL METNİ: Net ve adil!
                   AnimatedBuilder(
                       animation: _pulseController,
                       builder: (context, child) {
@@ -236,15 +213,9 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
                           ),
                         );
                       }),
-
                   const SizedBox(height: 35),
-
-                  // --- 3. NEON ÇARK GÖRSELİ ---
                   _buildWheelGraphic(),
-
                   const SizedBox(height: 45),
-
-                  // --- 4. AKILLI (DİNAMİK) BUTON ---
                   SizedBox(
                     width: double.infinity,
                     height: 65,
@@ -281,8 +252,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // --- 5. GÜVENLİ ÇIKIŞ KÖPRÜSÜ (SIFIR SİYAH EKRAN) ---
                   TextButton.icon(
                     onPressed:
                         _isSpinning ? null : () => widget.game.anaMenuyeDon(),
@@ -303,9 +272,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
     );
   }
 
-  // ==========================================
-  // ROULETTE (ÇARK) ÇİZİM MOTORU
-  // ==========================================
   Widget _buildWheelGraphic() {
     return SizedBox(
       height: 260,
@@ -313,7 +279,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
-          // Dönen Çark Gövdesi
           AnimatedBuilder(
               animation: _spinAnimation,
               builder: (context, child) {
@@ -362,8 +327,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
                   ),
                 );
               }),
-
-          // Çark İbresi (Ok) - Yukardan Aşağı Gösterir
           Positioned(
               top: -15,
               child: AnimatedBuilder(
@@ -378,10 +341,8 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
                               blurRadius: 10)
                         ]);
                   })),
-
-          // Çark Göbek (Merkez) Pimi
           Positioned(
-              top: 115, // 260'ın ortası eksi yarıçap
+              top: 115,
               child: Container(
                 width: 30,
                 height: 30,

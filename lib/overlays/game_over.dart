@@ -157,9 +157,9 @@ class _GameOverState extends State<GameOver>
                                   fontWeight: FontWeight.w900)),
                           const SizedBox(height: 10),
                           isScoreAdWatched
-                              ? Row(
+                              ? const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
+                                  children: [
                                       Icon(Icons.check_circle,
                                           color: Colors.green, size: 18),
                                       SizedBox(width: 5),
@@ -224,9 +224,9 @@ class _GameOverState extends State<GameOver>
                           ),
                           const SizedBox(height: 10),
                           isCrystalAdWatched
-                              ? Row(
+                              ? const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
+                                  children: [
                                       Icon(Icons.check_circle,
                                           color: Colors.green, size: 18),
                                       SizedBox(width: 5),

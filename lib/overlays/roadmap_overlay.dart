@@ -18,8 +18,6 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
   final ScrollController _scrollController = ScrollController();
   late AnimationController _bgController;
 
-  // Gerçek bir senaryoda bu liste DataManager içinde kaydedilir (DataManager.claimedRewards)
-  final Set<int> _claimedLevels = {};
   final int _totalLevels = 100;
 
   @override
@@ -57,10 +55,11 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
     super.dispose();
   }
 
-  // --- REWARD CLAIM (ÖDÜL ALMA) SİSTEMİ ---
+  // --- REWARD CLAIM (ÖDÜL ALMA) SİSTEMİ (GLITCH FİXLENDİ!) ---
   void _claimReward(int level, int amount) {
     setState(() {
-      _claimedLevels.add(level);
+      // YENİ: Artık geçici değil, kalıcı DataManager'a kaydediyoruz!
+      DataManager.claimReward(level);
       DataManager.totalCoins += amount;
       DataManager.saveData();
     });
@@ -357,7 +356,9 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
     bool isLocked = nodeLevel > currentCareerLevel;
     bool isCurrent = nodeLevel == currentCareerLevel;
 
-    bool isClaimed = _claimedLevels.contains(nodeLevel);
+    // YENİ: Geçici Set yerine doğrudan kalıcı DataManager'dan soruyoruz! (GLITCH FİXLENDİ)
+    bool isClaimed = DataManager.isRewardClaimed(nodeLevel);
+
     bool isBoss = nodeLevel % 10 == 0;
     bool isReward = nodeLevel % 5 == 0;
 

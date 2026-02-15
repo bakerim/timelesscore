@@ -3,8 +3,7 @@ import 'dart:ui';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
 import '../core/localization.dart';
-import '../data/purchase_manager.dart'; // Yeni PurchaseManager
-// import '../game/ad_manager.dart'; // Gerek yok, game üzerinden erişeceğiz
+import '../data/purchase_manager.dart'; // Yeni PurchaseManager bağlandı
 
 class ShopMenu extends StatefulWidget {
   final TimelessGame game;
@@ -25,7 +24,6 @@ class _ShopMenuState extends State<ShopMenu>
     super.initState();
     _currentCoins = DataManager.totalCoins;
 
-    // "En Popüler" kartı için nefes alma animasyonu
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -48,12 +46,10 @@ class _ShopMenuState extends State<ShopMenu>
     });
   }
 
-  // --- NAVİGASYON DÜZELTMESİ BURADA ---
   void _kapat() {
+    widget.game.overlays.remove('ShopMenu');
     widget.game.overlays.remove('Shop');
 
-    // MANTIK: Eğer oyun duraklatılmışsa VE Oyun HUD'ı ekranda yoksa
-    // Demek ki ana menüden geldik, ana menüye dönelim.
     if (widget.game.isPaused && !widget.game.overlays.isActive('GameHUD')) {
       widget.game.overlays.add('AnaMenu');
     }
@@ -81,7 +77,7 @@ class _ShopMenuState extends State<ShopMenu>
           // 1. GLASSMORPHISM ARKA PLAN
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-            child: Container(color: Colors.black.withOpacity(0.85)),
+            child: Container(color: Colors.black.withValues(alpha: 0.85)),
           ),
 
           // 2. İÇERİK
@@ -91,13 +87,14 @@ class _ShopMenuState extends State<ShopMenu>
               height: MediaQuery.of(context).size.height * 0.9,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.95),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                    color: Colors.purpleAccent.withOpacity(0.3), width: 1.5),
+                    color: Colors.purpleAccent.withValues(alpha: 0.3),
+                    width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.purple.withOpacity(0.15),
+                    color: Colors.purple.withValues(alpha: 0.15),
                     blurRadius: 30,
                     spreadRadius: 5,
                   )
@@ -121,7 +118,36 @@ class _ShopMenuState extends State<ShopMenu>
                           const SizedBox(height: 25),
                           _buildSectionTitle("CRYSTAL SHOP"),
                           const SizedBox(height: 10),
-                          _buildCoinPacksGrid(),
+
+                          // İŞTE İSTEDİĞİN DEĞİŞİKLİK: ARTIK ALT ALTA SATIR (ROW) LİSTESİ
+                          _buildHorizontalPack(
+                            title: "STARTER PACK",
+                            amount: "50",
+                            priceId:
+                                "100_time_crystals", // DİKKAT: Yeni PurchaseManager ID'sine eşitlendi
+                            color: Colors.blueAccent,
+                            icon: Icons.layers,
+                          ),
+                          const SizedBox(height: 12),
+                          ScaleTransition(
+                            scale: _pulseAnimation,
+                            child: _buildHorizontalPack(
+                              title: "POPULAR PACK",
+                              amount: "250",
+                              priceId: "250_time_crystals",
+                              color: Colors.purpleAccent,
+                              icon: Icons.diamond,
+                              isBestValue: true,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildHorizontalPack(
+                            title: "LEGENDARY PACK",
+                            amount: "1,000",
+                            priceId: "1000_time_crystals",
+                            color: Colors.amberAccent,
+                            icon: Icons.auto_awesome,
+                          ),
                           const SizedBox(height: 20),
                         ],
                       ),
@@ -129,12 +155,12 @@ class _ShopMenuState extends State<ShopMenu>
                   ),
                   const SizedBox(height: 15),
 
-                  // KAPAT BUTONU (GÜNCELLENDİ)
+                  // KAPAT BUTONU
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: TextButton(
-                      onPressed: _kapat, // Düzeltilmiş fonksiyonu çağırıyoruz
+                      onPressed: _kapat,
                       style: TextButton.styleFrom(
                           foregroundColor: Colors.white54,
                           shape: RoundedRectangleBorder(
@@ -187,7 +213,7 @@ class _ShopMenuState extends State<ShopMenu>
           decoration: BoxDecoration(
             color: Colors.black54,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+            border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -214,7 +240,7 @@ class _ShopMenuState extends State<ShopMenu>
       child: Text(
         title,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.4),
+          color: Colors.white.withValues(alpha: 0.4),
           fontSize: 12,
           fontWeight: FontWeight.w900,
           letterSpacing: 2,
@@ -240,8 +266,8 @@ class _ShopMenuState extends State<ShopMenu>
         boxShadow: [
           BoxShadow(
             color: isRemoved
-                ? Colors.green.withOpacity(0.3)
-                : Colors.amber.withOpacity(0.3),
+                ? Colors.green.withValues(alpha: 0.3)
+                : Colors.amber.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           )
@@ -252,7 +278,7 @@ class _ShopMenuState extends State<ShopMenu>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -277,7 +303,7 @@ class _ShopMenuState extends State<ShopMenu>
                 Text(
                   isRemoved ? "Thank you!" : "Remove ads & Support dev",
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.8), fontSize: 12),
+                      color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                 ),
               ],
             ),
@@ -285,8 +311,8 @@ class _ShopMenuState extends State<ShopMenu>
           if (!isRemoved)
             ElevatedButton(
               onPressed: () {
-                // Reklam Kaldırma ID'si (Google Play'de tanımlı olmalı)
-                PurchaseManager.buyProduct("remove_ads");
+                // YENİ PurchaseManager ID'Sİ BAĞLANDI
+                PurchaseManager.buyProduct(PurchaseManager.idRemoveAds);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -295,9 +321,9 @@ class _ShopMenuState extends State<ShopMenu>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text(
-                "₺79.99",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              child: Text(
+                _getPrice(PurchaseManager.idRemoveAds),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -305,12 +331,11 @@ class _ShopMenuState extends State<ShopMenu>
     );
   }
 
-  // --- REKLAM İZLEME KARTI (GÜNCELLENDİ: AdManager Entegre Edildi) ---
   Widget _buildWatchAdCard() {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
       ),
@@ -348,13 +373,11 @@ class _ShopMenuState extends State<ShopMenu>
           ),
           ElevatedButton(
             onPressed: () {
-              // --- DÜZELTME: AdManager ENTEGRASYONU ---
-              // widget.game üzerinden AdManager'a erişiyoruz.
               widget.game.adManager.showRewardedAd(
                 onReward: (amount) {
-                  DataManager.totalCoins += 3; // +3 Kristal
+                  DataManager.totalCoins += 3;
                   DataManager.saveData();
-                  _updateCoins(); // UI'ı güncelle
+                  _updateCoins();
                   _showSnack("+3 Kristal Eklendi! 💎", Colors.green);
                 },
                 onAdFailed: () {
@@ -377,152 +400,105 @@ class _ShopMenuState extends State<ShopMenu>
     );
   }
 
-  // --- PAKETLER GRID (GÜNCELLENDİ: PurchaseManager ID'leri) ---
-  Widget _buildCoinPacksGrid() {
-    // NOT: Bu ID'ler lib/core/purchase_manager.dart dosyasındakilerle AYNI olmalı.
-    // Eşleşmezse Google Play hata verir.
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildPackCard(
-                title: "STARTER",
-                amount:
-                    "50", // Miktarı PurchaseManager ile uyumlu hale getirdim
-                priceId: "paket_baslangic_50",
-                color: Colors.blueAccent,
-                icon: Icons.layers,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: ScaleTransition(
-                scale: _pulseAnimation,
-                child: _buildPackCard(
-                  title: "POPULAR",
-                  amount: "250",
-                  priceId: "paket_pro_250",
-                  color: Colors.purpleAccent,
-                  icon: Icons.diamond,
-                  isBestValue: true,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 15),
-        SizedBox(
-          width: double.infinity,
-          child: _buildPackCard(
-            title: "LEGENDARY",
-            amount: "1,000",
-            priceId: "paket_mega_1000",
-            color: Colors.amberAccent,
-            icon: Icons.auto_awesome,
-            isWide: true,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPackCard({
+  // ==============================================================
+  // İŞTE YENİ SATIR (YATAY) TASARIMI: SÜTUNLAR GİTTİ, SATIRLAR GELDİ
+  // ==============================================================
+  Widget _buildHorizontalPack({
     required String title,
     required String amount,
     required String priceId,
     required Color color,
     required IconData icon,
     bool isBestValue = false,
-    bool isWide = false,
   }) {
     return GestureDetector(
       onTap: () {
-        // --- DÜZELTME: PurchaseManager ÇAĞRISI ---
+        // Gerçek Satın Alma Tetiklenir
         PurchaseManager.buyProduct(priceId);
       },
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF263346),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isBestValue ? color : Colors.white10,
-                width: isBestValue ? 2 : 1,
-              ),
-              boxShadow: isBestValue
-                  ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 15)]
-                  : [],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: const Color(0xFF263346),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isBestValue ? color : Colors.white10,
+            width: isBestValue ? 2 : 1,
+          ),
+          boxShadow: isBestValue
+              ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 15)]
+              : [],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // SOL KISIM: İkon ve Miktar
+            Row(
               children: [
-                Icon(icon, color: color, size: isWide ? 40 : 32),
-                const SizedBox(height: 10),
-                Text(
-                  amount,
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isWide ? 24 : 20,
-                      fontWeight: FontWeight.w900),
-                ),
-                Text("Crystals", style: TextStyle(color: color, fontSize: 10)),
-                const SizedBox(height: 15),
                 Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 30 : 15, vertical: 8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    _getPrice(priceId),
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(width: 15),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isBestValue)
+                      Text(
+                        "★ BEST VALUE",
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900),
+                      ),
+                    Text(
+                      amount,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
+                    const Text("Crystals",
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  ],
                 ),
               ],
             ),
-          ),
-          if (isBestValue)
-            Positioned(
-              top: -10,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    "BEST VALUE",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold),
-                  ),
+
+            // SAĞ KISIM: Fiyat Butonu
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _getPrice(priceId),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  // --- DÜZELTME: Fiyatları yeni ID'lere göre ayarladık ---
   String _getPrice(String productId) {
-    if (productId == "paket_baslangic_50") return "₺34.99";
-    if (productId == "paket_pro_250") return "₺149.99";
-    if (productId == "paket_mega_1000") return "₺499.99";
-    if (productId == "remove_ads") return "₺79.99";
+    if (productId == "100_time_crystals") return "₺34.99";
+    if (productId == "250_time_crystals") return "₺149.99";
+    if (productId == "1000_time_crystals") return "₺499.99";
+    if (productId == PurchaseManager.idRemoveAds) return "₺79.99";
     return "...";
   }
 }

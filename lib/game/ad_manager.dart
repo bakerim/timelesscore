@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart'; // <--- EKSİK OLAN BUYDU!
+import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../data/data_manager.dart'; // <--- OYUNCUNUN VERİLERİ (VIP KONTROLÜ İÇİN)
 
 class AdManager {
   // --- REKLAM KİMLİKLERİ (TEST ID'LERİ) ---
-  // Yayınlarken bunları gerçek AdMob ID'lerinle değiştireceksin.
   final String _bannerIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
   final String _interstitialIdAndroid =
       'ca-app-pub-3940256099942544/1033173712';
@@ -26,15 +26,22 @@ class AdManager {
 
   // --- BAŞLATMA ---
   Future<void> init() async {
+    if (kIsWeb) return;
     await MobileAds.instance.initialize();
-    _loadBanner();
-    _loadInterstitial();
+
+    // YENİ: Oyuncu VIP ise (reklamları kaldırdıysa) Banner ve Geçiş yükleme!
+    if (!DataManager.isAdsRemoved) {
+      _loadBanner();
+      _loadInterstitial();
+    }
+
+    // Ödüllü reklam her zaman yüklenir, VIP'ler reklam izlemeden anında alır.
     _loadRewarded();
   }
 
   // --- PLATFORM KONTROLÜ ---
   String get bannerAdUnitId {
-    if (kIsWeb) return ''; // Web desteklenmiyor
+    if (kIsWeb) return '';
     return Platform.isAndroid ? _bannerIdAndroid : _bannerIdIOS;
   }
 
@@ -52,7 +59,7 @@ class AdManager {
   // 1. BANNER REKLAM (Alt Kısım)
   // ============================================================
   void _loadBanner() {
-    if (kIsWeb) return;
+    if (kIsWeb || DataManager.isAdsRemoved) return; // VIP Kontrolü
 
     _bannerAd = BannerAd(
       adUnitId: bannerAdUnitId,
@@ -72,8 +79,10 @@ class AdManager {
     )..load();
   }
 
-  // Oyun içinde Banner Widget'ı göstermek için bu fonksiyonu çağıracağız
   Widget getBannerWidget() {
+    // VIP'ler için veya yüklenmediyse doğrudan görünmez bir kutu döndür
+    if (DataManager.isAdsRemoved) return const SizedBox.shrink();
+
     if (_isBannerLoaded && _bannerAd != null) {
       return SizedBox(
         width: _bannerAd!.size.width.toDouble(),
@@ -81,14 +90,14 @@ class AdManager {
         child: AdWidget(ad: _bannerAd!),
       );
     }
-    return const SizedBox.shrink(); // Yüklü değilse boşluk döndür
+    return const SizedBox.shrink();
   }
 
   // ============================================================
   // 2. GEÇİŞ REKLAMI (Oyun Sonu / Level Sonu)
   // ============================================================
   void _loadInterstitial() {
-    if (kIsWeb) return;
+    if (kIsWeb || DataManager.isAdsRemoved) return; // VIP Kontrolü
 
     InterstitialAd.load(
       adUnitId: interstitialAdUnitId,
@@ -108,12 +117,18 @@ class AdManager {
   }
 
   void showInterstitialAd({VoidCallback? onAdDismissed}) {
+    // VIP KONTROLÜ: Adam para verdiyse reklamı atla ve hayatına devam et!
+    if (DataManager.isAdsRemoved) {
+      if (onAdDismissed != null) onAdDismissed();
+      return;
+    }
+
     if (_isInterstitialLoaded && _interstitialAd != null) {
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
           _isInterstitialLoaded = false;
-          _loadInterstitial(); // Bir sonraki için yenisini yükle
+          _loadInterstitial();
           if (onAdDismissed != null) onAdDismissed();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
@@ -127,7 +142,7 @@ class AdManager {
     } else {
       debugPrint("AdManager: Geçiş reklamı hazır değil, pas geçiliyor.");
       if (onAdDismissed != null) onAdDismissed();
-      _loadInterstitial(); // Tekrar yüklemeyi dene
+      _loadInterstitial();
     }
   }
 
@@ -156,12 +171,19 @@ class AdManager {
 
   void showRewardedAd(
       {required Function(int) onReward, VoidCallback? onAdFailed}) {
+    // VIP KONTROLÜ: Oyuncu VIP ise reklam izletmeden ödülü anında ver!
+    if (DataManager.isAdsRemoved) {
+      debugPrint("AdManager: VIP Kullanıcı! Reklam izlenmeden ödül verildi.");
+      onReward(1);
+      return;
+    }
+
     if (_isRewardedLoaded && _rewardedAd != null) {
       _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
           _isRewardedLoaded = false;
-          _loadRewarded(); // Yenisini hazırla
+          _loadRewarded();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
           ad.dispose();
@@ -173,7 +195,6 @@ class AdManager {
 
       _rewardedAd!.show(
         onUserEarnedReward: (ad, reward) {
-          // Kullanıcı ödülü hak etti
           debugPrint("AdManager: Ödül kazanıldı! Miktar: ${reward.amount}");
           onReward(reward.amount.toInt());
         },

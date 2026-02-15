@@ -1,88 +1,120 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'data_manager.dart';
 
 class PurchaseManager {
   static final InAppPurchase _iap = InAppPurchase.instance;
-  static bool available = true;
+  static late StreamSubscription<List<PurchaseDetails>> _subscription;
 
-  // Google Play Console'da oluşturacağın ürün ID'leri:
-  static const String idRemoveAds = 'remove_ads';
-  static const String idCoinPack1 = 'coin_pack_1000';
-
+  static bool isAvailable = false;
   static List<ProductDetails> products = [];
-  static StreamSubscription<List<PurchaseDetails>>? _subscription;
 
-  static void init() {
+  // ==========================================
+  // 1. MAĞAZA ÜRÜN KODLARI
+  // (Google Play Console'a gireceğin ID'ler)
+  // ==========================================
+  static const String idRemoveAds = 'remove_ads_premium'; // Kalıcı ürün
+  static const String idBuyCrystals = '100_time_crystals'; // Tüketilebilir ürün
+
+  // ==========================================
+  // 2. MOTORU BAŞLAT VE MAĞAZAYA BAĞLAN
+  // ==========================================
+  static Future<void> init() async {
+    isAvailable = await _iap.isAvailable();
+    if (!isAvailable) {
+      debugPrint("Mağaza bağlantısı kurulamadı (Emülatörde olabilirsin).");
+      return;
+    }
+
+    // Oyuncu bir şey satın aldığında faturayı anında yakalayacak dinleyici
     final Stream<List<PurchaseDetails>> purchaseUpdated = _iap.purchaseStream;
     _subscription = purchaseUpdated.listen((purchaseDetailsList) {
       _listenToPurchaseUpdated(purchaseDetailsList);
     }, onDone: () {
-      _subscription?.cancel();
+      _subscription.cancel();
     }, onError: (error) {
-      debugPrint("IAP Hatası: $error");
+      debugPrint("Satın alma dinleyicisi hatası: $error");
     });
 
-    _loadProducts();
+    // Mağazadaki ürünleri çek (Fiyatlarını ve isimlerini getirmek için)
+    await loadProducts();
   }
 
-  static Future<void> _loadProducts() async {
-    try {
-      available = await _iap.isAvailable();
-      if (!available) return;
+  // ==========================================
+  // 3. ÜRÜNLERİ GOOGLE PLAY'DEN GETİR
+  // ==========================================
+  static Future<void> loadProducts() async {
+    const Set<String> kIds = <String>{idRemoveAds, idBuyCrystals};
+    final ProductDetailsResponse response =
+        await _iap.queryProductDetails(kIds);
 
-      const Set<String> kIds = {idRemoveAds, idCoinPack1};
-      final ProductDetailsResponse response =
-          await _iap.queryProductDetails(kIds);
-
-      if (response.notFoundIDs.isNotEmpty) {
-        debugPrint("Bulunamayan Ürünler: ${response.notFoundIDs}");
-      }
-
-      products = response.productDetails;
-      debugPrint("Yüklenen Ürün Sayısı: ${products.length}");
-    } catch (e) {
-      debugPrint("Ürünleri yüklerken hata: $e");
+    if (response.notFoundIDs.isNotEmpty) {
+      debugPrint(
+          "Google Play'de bulunamayan Ürün ID'leri: ${response.notFoundIDs}");
     }
+    products = response.productDetails;
   }
 
-  // --- DÜZELTİLEN METOD BURASI ---
+  // ==========================================
+  // 4. SATIN ALMA İŞLEMİNİ BAŞLAT (Market Butonu Tetikler)
+  // ==========================================
   static void buyProduct(String productId) {
-    // 1. Ürün listesi boşsa işlem yapma
-    if (products.isEmpty) {
-      debugPrint("Ürün listesi henüz yüklenmedi.");
+    if (!isAvailable) {
+      debugPrint("Mağaza şu an kullanılamıyor.");
       return;
     }
 
     try {
-      // 2. Ürünü bulmaya çalış (Hata veren yer burasıydı)
-      final ProductDetails product =
-          products.firstWhere((element) => element.id == productId);
-
-      // 3. Bulunursa satın alma sürecini başlat
+      final ProductDetails productDetails =
+          products.firstWhere((p) => p.id == productId);
       final PurchaseParam purchaseParam =
-          PurchaseParam(productDetails: product);
-      _iap.buyNonConsumable(purchaseParam: purchaseParam);
+          PurchaseParam(productDetails: productDetails);
+
+      // Tüketilmeyen (Kalıcı VIP) ürün: Reklam kaldırma
+      if (productId == idRemoveAds) {
+        _iap.buyNonConsumable(purchaseParam: purchaseParam);
+      }
+      // Tüketilebilir (Defalarca alınabilen) ürün: Kristal
+      else {
+        _iap.buyConsumable(purchaseParam: purchaseParam);
+      }
     } catch (e) {
-      // 4. Bulunamazsa (StateError) buraya düşer
-      debugPrint("Ürün bulunamadı veya ID hatalı: $productId");
+      debugPrint("Ürün bulunamadı veya satın alma ekranı açılamadı: $e");
     }
   }
 
+  // ==========================================
+  // 5. SATIN ALIMLARI GERİ YÜKLE (Telefon değiştirenler için)
+  // ==========================================
+  static Future<void> restorePurchases() async {
+    await _iap.restorePurchases();
+  }
+
+  // ==========================================
+  // 6. KASİYER (Faturayı kontrol et ve malı teslim et)
+  // ==========================================
   static void _listenToPurchaseUpdated(
       List<PurchaseDetails> purchaseDetailsList) {
-    for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
+    for (var purchaseDetails in purchaseDetailsList) {
       if (purchaseDetails.status == PurchaseStatus.pending) {
-        // İşlem bekleniyor...
-      } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-          debugPrint("Satın alma hatası: ${purchaseDetails.error}");
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-            purchaseDetails.status == PurchaseStatus.restored) {
-          _deliverProduct(purchaseDetails);
+        debugPrint("Satın alma onaylanıyor, lütfen bekleyin...");
+      } else if (purchaseDetails.status == PurchaseStatus.error) {
+        debugPrint(
+            "Satın alma başarısız veya iptal edildi: ${purchaseDetails.error}");
+      } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+          purchaseDetails.status == PurchaseStatus.restored) {
+        // --- ADIM A: ÜRÜNÜ TESLİM ET ---
+        if (purchaseDetails.productID == idRemoveAds) {
+          DataManager.setAdsRemoved(true); // VIP Yaptık!
+          debugPrint("TEBRİKLER! Reklamlar kalıcı olarak kaldırıldı!");
+        } else if (purchaseDetails.productID == idBuyCrystals) {
+          DataManager.totalCoins += 100;
+          DataManager.saveData();
+          debugPrint("TEBRİKLER! 100 Zaman Kristali hesaba eklendi!");
         }
 
+        // --- ADIM B: GOOGLE'A 'PARAYI ALDIM' MESAJI GÖNDER ---
         if (purchaseDetails.pendingCompletePurchase) {
           _iap.completePurchase(purchaseDetails);
         }
@@ -90,13 +122,8 @@ class PurchaseManager {
     }
   }
 
-  static void _deliverProduct(PurchaseDetails purchaseDetails) {
-    if (purchaseDetails.productID == idRemoveAds) {
-      DataManager.removeAds();
-      debugPrint("REKLAMLAR KALDIRILDI!");
-    } else if (purchaseDetails.productID == idCoinPack1) {
-      // DataManager.addCoins(1000);
-      debugPrint("1000 COIN EKLENDİ!");
-    }
+  // Motoru kapatırken dinleyiciyi öldür (Hafıza sızıntısını engeller)
+  static void dispose() {
+    _subscription.cancel();
   }
 }

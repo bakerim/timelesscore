@@ -7,14 +7,15 @@ import 'package:flutter/foundation.dart';
 import '../game/timeless_game.dart';
 
 // --- OVERLAY IMPORTLARI ---
-import '../overlays/main_menu.dart'; // İçindeki class'ın adı MainMenu olmalı
+import '../overlays/main_menu.dart';
 import '../overlays/game_over.dart';
 import '../overlays/pause_menu.dart';
 import '../overlays/settings_overlay.dart';
 import '../overlays/shop_menu.dart';
 import '../overlays/roadmap_overlay.dart';
 import '../overlays/revive_menu.dart';
-// ---------------------------------
+import '../overlays/daily_spin_overlay.dart';
+import '../overlays/game_hud.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -25,7 +26,6 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
-  // Oyun örneği
   final TimelessGame game = TimelessGame();
 
   BannerAd? _bannerAd;
@@ -39,7 +39,7 @@ class _GameScreenState extends State<GameScreen>
     // Web değilse Banner reklamı yükle
     if (!kIsWeb) _loadBanner();
 
-    // Arka plan animasyonu için controller (30 saniyede bir tam döngü)
+    // Arka plan animasyonu için controller
     _bgController =
         AnimationController(vsync: this, duration: const Duration(seconds: 30))
           ..repeat();
@@ -103,26 +103,29 @@ class _GameScreenState extends State<GameScreen>
               game: game,
               initialActiveOverlays: const ['AnaMenu'],
               overlayBuilderMap: {
-                'AnaMenu': (context, game) => MainMenu(
-                    game: game as TimelessGame), // DÜZELTİLDİ: MainMenu
+                'AnaMenu': (context, game) =>
+                    MainMenu(game: game as TimelessGame),
+                'GameHUD': (context, game) =>
+                    GameHUD(game: game as TimelessGame),
                 'GameOver': (context, game) =>
                     GameOver(game: game as TimelessGame),
                 'PauseMenu': (context, game) =>
                     PauseMenu(game: game as TimelessGame),
-                'Settings': (context, game) =>
-                    SettingsOverlay(game: game as TimelessGame),
-                'Ayarlar': (context, game) =>
-                    SettingsOverlay(game: game as TimelessGame),
-                'Shop': (context, game) => ShopMenu(game: game as TimelessGame),
-                'Roadmap': (context, game) =>
-                    RoadmapOverlay(game: game as TimelessGame),
                 'ReviveMenu': (context, game) =>
                     ReviveMenu(game: game as TimelessGame),
+                'ShopMenu': (context, game) =>
+                    ShopMenu(game: game as TimelessGame),
+                'Roadmap': (context, game) =>
+                    RoadmapOverlay(game: game as TimelessGame),
+                'DailySpin': (context, game) =>
+                    DailySpinOverlay(game: game as TimelessGame),
+                'SettingsMenu': (context, game) =>
+                    SettingsOverlay(game: game as TimelessGame),
               },
             ),
 
-            // 3. KATMAN: ALT BANNER REKLAM
-            if (_isBannerLoaded && _bannerAd != null)
+            // 3. KATMAN: ALT BANNER REKLAM (ShopMenu Açıksa Gizlenir)
+            if (_isBannerLoaded && _bannerAd != null && !game.overlays.isActive('ShopMenu'))
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -156,8 +159,8 @@ class FloatingShapesPainter extends CustomPainter {
 
     for (int i = 0; i < 15; i++) {
       paint.color = i % 2 == 0
-          ? Colors.blueAccent.withOpacity(0.05)
-          : Colors.purpleAccent.withOpacity(0.05);
+          ? Colors.blueAccent.withValues(alpha: 0.05)
+          : Colors.purpleAccent.withValues(alpha: 0.05);
 
       double startX = random.nextDouble() * size.width;
       double startY = random.nextDouble() * size.height;

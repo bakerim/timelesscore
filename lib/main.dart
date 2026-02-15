@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // kIsWeb kontrolü için
-import 'package:flame/game.dart'; // GameWidget için
-import 'package:flame/flame.dart'; // Flame.device için
+import 'package:flutter/foundation.dart';
+import 'package:flame/game.dart';
+import 'package:flame/flame.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // --- KENDİ DOSYALARIMIZ ---
@@ -17,7 +17,8 @@ import 'overlays/roadmap_overlay.dart';
 import 'overlays/settings_overlay.dart';
 import 'overlays/revive_menu.dart';
 import 'overlays/game_hud.dart';
-import 'overlays/daily_spin_overlay.dart'; // <--- BU EKSİKTİ, EKLENDİ!
+import 'overlays/daily_spin_overlay.dart';
+import 'overlays/theme_menu.dart'; // <--- YENİ: TEMA MENÜSÜ İÇERİ AKTARILDI!
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,20 +82,25 @@ class _GameScreenState extends State<GameScreen> {
         body: GameWidget(
           game: game,
           // --- OVERLAY (MENÜ) BAĞLANTILARI ---
-          // Buradaki isimler (Key) ile timeless_game.dart içindeki çağrılar (overlays.add) AYNI OLMALI.
           overlayBuilderMap: {
             'AnaMenu': (context, game) => MainMenu(game: game as TimelessGame),
-            'GameOver': (context, game) =>
-                GameOver(game: game as TimelessGame),
+            'GameOver': (context, game) => GameOver(game: game as TimelessGame),
             'PauseMenu': (context, game) =>
                 PauseMenu(game: game as TimelessGame),
-            'Shop': (context, game) => ShopMenu(game: game as TimelessGame),
+
+            // DİKKAT: İsimler güncel mimariyle uyumlu hale getirildi!
+            'ShopMenu': (context, game) => ShopMenu(game: game as TimelessGame),
+            'SettingsMenu': (context, game) =>
+                SettingsOverlay(game: game as TimelessGame),
+
             'Roadmap': (context, game) =>
                 RoadmapOverlay(game: game as TimelessGame),
-            'Settings': (context, game) =>
-                SettingsOverlay(game: game as TimelessGame),
             'ReviveMenu': (context, game) =>
                 ReviveMenu(game: game as TimelessGame),
+
+            // YENİ: Tema Menüsü Kayıt Edildi!
+            'ThemeMenu': (context, game) =>
+                ThemeMenu(game: game as TimelessGame),
 
             // HUD ve ÇARK
             'GameHUD': (context, game) => GameHUD(game: game as TimelessGame),

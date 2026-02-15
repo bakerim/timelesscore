@@ -3,6 +3,7 @@ import 'dart:ui';
 import '../game/timeless_game.dart';
 import '../core/localization.dart';
 import '../data/data_manager.dart';
+import '../core/audio_manager.dart'; // YENİ: Ses Bakanlığını içeri aktardık!
 
 class SettingsOverlay extends StatefulWidget {
   final TimelessGame game;
@@ -26,16 +27,16 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
   }
 
   void _kapat() {
-    widget.game.overlays.remove('Settings');
-    widget.game.overlays.remove('Ayarlar'); // Eski isimden kalan varsa temizle
+    widget.game.overlays.remove('SettingsMenu'); // Adını menüyle uyumlu yaptık
+    widget.game.overlays.remove('Ayarlar');
 
     // NAVİGASYON MANTIĞI:
     // Eğer oyun PAUSED ise (duraklatılmışsa) VE GameHUD ekranda YOKSA:
     // Demek ki Ana Menüden gelmişiz veya oyun henüz başlamamış.
     if (widget.game.isPaused && !widget.game.overlays.isActive('GameHUD')) {
-      widget.game.overlays.add('AnaMenu');
+      // Zaten AnaMenu'nün üst katmanındayız, sadece kendimizi (SettingsMenu) kapatmamız yeterli.
+      // Ekranda alttaki AnaMenu görünecektir. Ekstra işlem yapmıyoruz.
     }
-    // Aksi takdirde (Oyun oynanıyorsa), overlay kalkınca alttaki oyun görünür.
   }
 
   void _dilDegistir(String langCode) {
@@ -52,14 +53,16 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
         children: [
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(color: Colors.black.withOpacity(0.8)),
+            // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
+            child: Container(color: Colors.black.withValues(alpha: 0.8)),
           ),
           Center(
             child: Container(
               width: 340,
               padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.95),
+                // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
+                color: const Color(0xFF1E293B).withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: Colors.white10),
               ),
@@ -94,7 +97,8 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                     color: Colors.purpleAccent,
                     onChanged: (val) {
                       setState(() => _musicOn = val);
-                      widget.game.muzikYonetimi(val);
+                      // İŞTE ÇÖZÜM: Emri doğrudan Ses Bakanına (AudioManager) veriyoruz!
+                      AudioManager.manageBgm(val);
                     },
                   ),
                   const SizedBox(height: 10),
@@ -107,7 +111,7 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                     color: Colors.amberAccent,
                     onChanged: (val) {
                       setState(() => _sfxOn = val);
-                      widget.game.sesAcik = val;
+                      // İŞTE ÇÖZÜM: Ses verisini anında DataManager'a işliyoruz
                       DataManager.setSound(val);
                     },
                   ),
@@ -150,7 +154,10 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
         height: 45,
         decoration: BoxDecoration(
             color:
-                isSelected ? Colors.blueAccent : Colors.white.withOpacity(0.1),
+                // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
+                isSelected
+                    ? Colors.blueAccent
+                    : Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
             border:
                 isSelected ? Border.all(color: Colors.white, width: 2) : null),
@@ -172,7 +179,8 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(15)),
       child: ListTile(
         leading: Icon(icon, color: color),
