@@ -1,11 +1,43 @@
+import 'dart:ui' as ui;
+import 'package:shared_preferences/shared_preferences.dart';
+
 class Dil {
-  // Varsayılan dil
-  static String mevcutDil = 'TR';
+  // Varsayılan dili artık İngilizce (EN) yapıyoruz (Global standart)
+  static String mevcutDil = 'EN';
 
   static String get currentLanguage => mevcutDil.toLowerCase();
 
-  static void setLanguage(String langCode) {
-    dilDegistir(langCode.toUpperCase());
+  // --- İŞTE SİHİRLİ FONKSİYON: OYUN AÇILIRKEN ÇALIŞACAK ---
+  static Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? kayitliDil = prefs.getString('secili_dil');
+
+    if (kayitliDil != null && _sozluk.containsKey(kayitliDil)) {
+      // 1. Durum: Oyuncu daha önce ayarlardan dil seçmişse onu yükle
+      mevcutDil = kayitliDil;
+    } else {
+      // 2. Durum: Oyun İLK DEFA açılıyor. Telefonun dilini gizlice oku!
+      String cihazDili =
+          ui.PlatformDispatcher.instance.locale.languageCode.toUpperCase();
+
+      if (_sozluk.containsKey(cihazDili)) {
+        mevcutDil =
+            cihazDili; // Örn: Telefon Fransızca (FR) ise direkt FR açılır
+      } else {
+        mevcutDil =
+            'EN'; // Telefon Japonca, Rusça vb. ise zorunlu İngilizce (EN) açılır
+      }
+    }
+  }
+
+  // Ayarlardan dil değiştiğinde anında hafızaya yazar
+  static Future<void> setLanguage(String langCode) async {
+    String upperLang = langCode.toUpperCase();
+    if (_sozluk.containsKey(upperLang)) {
+      mevcutDil = upperLang;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('secili_dil', upperLang);
+    }
   }
 
   static final Map<String, Map<String, String>> _sozluk = {
@@ -13,12 +45,12 @@ class Dil {
     // TÜRKÇE (TR)
     // ----------------------------------------------------------------
     'TR': {
-      // ... (Eski kelimeler aynen kalıyor) ...
       'baslik': 'Timeless Core',
       'basla': 'OYUNA BAŞLA',
       'devam_et': 'DEVAM ET',
       'ayarlar': 'AYARLAR',
       'market': 'MARKET',
+      'temalar': 'TEMALAR', // HATA DÜZELTİLDİ! (Önceden THEMES yazıyordu)
       'cikis': 'ÇIKIŞ',
       'oyun_bitti': 'OYUN BİTTİ',
       'puan': 'PUAN',
@@ -61,7 +93,6 @@ class Dil {
       'kilitli': 'KİLİTLİ',
       'tamamlandi': 'TAMAMLANDI',
 
-      // --- YENİ EKLENEN RÜTBELER ---
       'rutbe_acemi': 'ACEMİ',
       'rutbe_cirak': 'ÇIRAK',
       'rutbe_kasif': 'KAŞİF',
@@ -75,12 +106,12 @@ class Dil {
     // ENGLISH (EN)
     // ----------------------------------------------------------------
     'EN': {
-      // ... (Eski kelimeler) ...
       'baslik': 'Timeless Core',
       'basla': 'START GAME',
       'devam_et': 'RESUME',
       'ayarlar': 'SETTINGS',
       'market': 'SHOP',
+      'temalar': 'THEMES', // Eksik tamamlandı
       'cikis': 'EXIT',
       'oyun_bitti': 'GAME OVER',
       'puan': 'SCORE',
@@ -106,7 +137,7 @@ class Dil {
       'zaman_normal': 'TIME NORMAL',
       'ikinci_sans': 'SECOND CHANCE!',
       'mukemmel': 'PERFECT!',
-      'yol_haritasi': 'ROADMAP',
+      'yol_haritasi': 'ROADMAP', // Eksik tamamlandı
       'kristal_kazandin': 'Crystals Earned!',
       'paket_baslangic': 'Starter Pack',
       'paket_profesyonel': 'Pro Pack',
@@ -123,7 +154,6 @@ class Dil {
       'kilitli': 'LOCKED',
       'tamamlandi': 'COMPLETED',
 
-      // --- NEW RANKS ---
       'rutbe_acemi': 'NOVICE',
       'rutbe_cirak': 'APPRENTICE',
       'rutbe_kasif': 'EXPLORER',
@@ -137,12 +167,12 @@ class Dil {
     // DEUTSCH (DE)
     // ----------------------------------------------------------------
     'DE': {
-      // ... (Diğer kelimeler) ...
       'baslik': 'Timeless Core',
       'basla': 'STARTEN',
       'devam_et': 'WEITER',
       'ayarlar': 'EINSTELLUNGEN',
       'market': 'LADEN',
+      'temalar': 'THEMEN', // Eksik
       'cikis': 'BEENDEN',
       'oyun_bitti': 'SPIEL VORBEI',
       'puan': 'PUNKTE',
@@ -185,7 +215,6 @@ class Dil {
       'kilitli': 'GESPERRT',
       'tamamlandi': 'FERTIG',
 
-      // --- NEUE RÄNGE ---
       'rutbe_acemi': 'ANFÄNGER',
       'rutbe_cirak': 'LEHRLING',
       'rutbe_kasif': 'ENTDECKER',
@@ -199,12 +228,12 @@ class Dil {
     // ESPAÑOL (ES)
     // ----------------------------------------------------------------
     'ES': {
-      // ... (Diğer kelimeler) ...
       'baslik': 'Timeless Core',
       'basla': 'EMPEZAR',
       'devam_et': 'CONTINUAR',
       'ayarlar': 'AJUSTES',
       'market': 'TIENDA',
+      'temalar': 'TEMAS', // Eksik
       'cikis': 'SALIR',
       'oyun_bitti': 'JUEGO TERMINADO',
       'puan': 'PUNTOS',
@@ -247,7 +276,6 @@ class Dil {
       'kilitli': 'BLOQUEADO',
       'tamamlandi': 'COMPLETADO',
 
-      // --- NUEVOS RANGOS ---
       'rutbe_acemi': 'NOVATO',
       'rutbe_cirak': 'APRENDIZ',
       'rutbe_kasif': 'EXPLORADOR',
@@ -261,12 +289,12 @@ class Dil {
     // FRANÇAIS (FR)
     // ----------------------------------------------------------------
     'FR': {
-      // ... (Diğer kelimeler) ...
       'baslik': 'Timeless Core',
       'basla': 'COMMENCER',
       'devam_et': 'CONTINUER',
       'ayarlar': 'PARAMÈTRES',
       'market': 'BOUTIQUE',
+      'temalar': 'THÈMES', // Eksik
       'cikis': 'QUITTER',
       'oyun_bitti': 'JEU TERMINÉ',
       'puan': 'SCORE',
@@ -284,7 +312,7 @@ class Dil {
       'iki_kat_kazan': 'SCORE 2X',
       'reklam_yukleniyor': 'Chargement...',
       'reklam_kaldir': 'SUPPRIMER LES PUBS',
-      'premium_aktif': 'PREMIUM ACTIF',
+      'premium_aktif': 'PREMIUM ACTIVO',
       'yetersiz_bakiye': 'Pas assez de cristaux!',
       'satin_al': 'ACHETER',
       'ucretsiz': 'GRATUIT',
@@ -309,7 +337,6 @@ class Dil {
       'kilitli': 'VERROUILLÉ',
       'tamamlandi': 'TERMINÉ',
 
-      // --- NOUVEAUX RANGS ---
       'rutbe_acemi': 'NOVICE',
       'rutbe_cirak': 'APPRENTI',
       'rutbe_kasif': 'EXPLORATEUR',
@@ -324,13 +351,11 @@ class Dil {
     if (_sozluk[mevcutDil] != null && _sozluk[mevcutDil]!.containsKey(key)) {
       return _sozluk[mevcutDil]![key]!;
     }
-    return _sozluk['TR']?[key] ?? key.toUpperCase();
+    // Eğer kelimeyi mevcut dilde bulamazsa İngilizceye (EN) bak, orada da yoksa büyük harfle aynen yaz.
+    return _sozluk['EN']?[key] ?? key.toUpperCase();
   }
 
-  static void dilDegistir(String yeniDil) {
-    String upperLang = yeniDil.toUpperCase();
-    if (_sozluk.containsKey(upperLang)) {
-      mevcutDil = upperLang;
-    }
+  static Future<void> dilDegistir(String yeniDil) async {
+    await setLanguage(yeniDil);
   }
 }

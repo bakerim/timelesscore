@@ -112,8 +112,6 @@ class _DailySpinOverlayState extends State<DailySpinOverlay>
     DataManager.totalCoins += rewardAmount;
     DataManager.saveData();
 
-    widget.game.elmasYazisi.text = '💎 ${DataManager.totalCoins}';
-
     if (!kIsWeb) HapticFeedback.vibrate();
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(

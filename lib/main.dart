@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flame/game.dart';
-import 'package:flame/flame.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb kontrolü için
+import 'package:flame/game.dart'; // GameWidget için
+import 'package:flame/flame.dart'; // Flame.device için
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // --- KENDİ DOSYALARIMIZ ---
@@ -16,26 +16,16 @@ import 'overlays/shop_menu.dart';
 import 'overlays/roadmap_overlay.dart';
 import 'overlays/settings_overlay.dart';
 import 'overlays/revive_menu.dart';
-import 'overlays/game_hud.dart';
-import 'overlays/daily_spin_overlay.dart';
-import 'overlays/theme_menu.dart'; // <--- YENİ: TEMA MENÜSÜ İÇERİ AKTARILDI!
+import 'overlays/splash_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 1. Veri Yönetimi
   await DataManager.init();
 
-  // 2. MOBİL ÖZEL AYARLAR
   if (!kIsWeb) {
     await Flame.device.fullScreen();
     await Flame.device.setPortraitUpOnly();
-
-    try {
-      await MobileAds.instance.initialize();
-    } catch (e) {
-      debugPrint("Reklam servisi başlatılamadı: $e");
-    }
+    await MobileAds.instance.initialize();
   }
 
   runApp(const MyApp());
@@ -52,7 +42,6 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
-        fontFamily: 'Arial',
       ),
       home: const GameScreen(),
     );
@@ -67,48 +56,39 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  // Oyun motorunu burada başlatıyoruz
   final TimelessGame game = TimelessGame();
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
+      onPopInvoked: (didPop) {
         if (didPop) return;
-        game.onBackPressed(); // Geri tuşu kontrolü oyun motorunda
+        bool shouldExit = game.onBackPressed();
+        if (shouldExit) {
+          // Gerekirse uygulamadan çıkış kodu buraya
+        }
       },
       child: Scaffold(
         body: GameWidget(
           game: game,
-          // --- OVERLAY (MENÜ) BAĞLANTILARI ---
           overlayBuilderMap: {
+            'Splash': (context, game) =>
+                SplashOverlay(game: game as TimelessGame),
             'AnaMenu': (context, game) => MainMenu(game: game as TimelessGame),
-            'GameOver': (context, game) => GameOver(game: game as TimelessGame),
+            'GameOver': (context, game) =>
+                GameOver(game: game as TimelessGame), // <-- DÜZELTİLDİ
             'PauseMenu': (context, game) =>
                 PauseMenu(game: game as TimelessGame),
-
-            // DİKKAT: İsimler güncel mimariyle uyumlu hale getirildi!
             'ShopMenu': (context, game) => ShopMenu(game: game as TimelessGame),
-            'SettingsMenu': (context, game) =>
-                SettingsOverlay(game: game as TimelessGame),
-
             'Roadmap': (context, game) =>
                 RoadmapOverlay(game: game as TimelessGame),
+            'SettingsMenu': (context, game) =>
+                SettingsOverlay(game: game as TimelessGame),
             'ReviveMenu': (context, game) =>
                 ReviveMenu(game: game as TimelessGame),
-
-            // YENİ: Tema Menüsü Kayıt Edildi!
-            'ThemeMenu': (context, game) =>
-                ThemeMenu(game: game as TimelessGame),
-
-            // HUD ve ÇARK
-            'GameHUD': (context, game) => GameHUD(game: game as TimelessGame),
-            'DailySpin': (context, game) =>
-                DailySpinOverlay(game: game as TimelessGame),
           },
-          // Oyun ilk açıldığında Ana Menü gelsin
-          initialActiveOverlays: const ['AnaMenu'],
+          initialActiveOverlays: const ['Splash'],
         ),
       ),
     );

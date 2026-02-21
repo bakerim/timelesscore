@@ -3,7 +3,7 @@ import 'dart:ui';
 import '../game/timeless_game.dart';
 import '../core/localization.dart';
 import '../data/data_manager.dart';
-import '../core/audio_manager.dart'; // YENİ: Ses Bakanlığını içeri aktardık!
+import '../core/audio_manager.dart';
 
 class SettingsOverlay extends StatefulWidget {
   final TimelessGame game;
@@ -21,28 +21,35 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
   @override
   void initState() {
     super.initState();
-    // Hafızadan oku
     _musicOn = DataManager.isMusicOn;
     _sfxOn = DataManager.isSoundOn;
   }
 
   void _kapat() {
-    widget.game.overlays.remove('SettingsMenu'); // Adını menüyle uyumlu yaptık
+    widget.game.overlays.remove('SettingsMenu');
     widget.game.overlays.remove('Ayarlar');
 
-    // NAVİGASYON MANTIĞI:
-    // Eğer oyun PAUSED ise (duraklatılmışsa) VE GameHUD ekranda YOKSA:
-    // Demek ki Ana Menüden gelmişiz veya oyun henüz başlamamış.
-    if (widget.game.isPaused && !widget.game.overlays.isActive('GameHUD')) {
-      // Zaten AnaMenu'nün üst katmanındayız, sadece kendimizi (SettingsMenu) kapatmamız yeterli.
-      // Ekranda alttaki AnaMenu görünecektir. Ekstra işlem yapmıyoruz.
+    // --- İŞTE AJANIN BULDUĞU HATANIN ÇÖZÜMÜ (PİT-STOP TAKTİĞİ) ---
+    // Motorun kilitlenmemesi (Race Condition olmaması) için silme ve ekleme
+    // arasına 50 milisaniyelik bir nefes alma süresi koyuyoruz.
+    if (widget.game.overlays.isActive('AnaMenu')) {
+      widget.game.overlays.remove('AnaMenu'); // 1. Eski lastiği sök
+
+      Future.delayed(const Duration(milliseconds: 50), () {
+        widget.game.overlays.add('AnaMenu'); // 2. Yeni lastiği güvenle tak
+      });
     }
   }
 
-  void _dilDegistir(String langCode) {
-    setState(() {
-      Dil.dilDegistir(langCode);
-    });
+  void _dilDegistir(String langCode) async {
+    // 1. Dili güvenle değiştir
+    await Dil.dilDegistir(langCode);
+
+    // 2. SADECE Ayarlar menüsünün yazısını anında çevir.
+    // Ana menü biz kapatırken (yukarıdaki fonksiyonda) çevrilecek.
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -53,7 +60,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
         children: [
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
             child: Container(color: Colors.black.withValues(alpha: 0.8)),
           ),
           Center(
@@ -61,7 +67,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
               width: 340,
               padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
-                // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
                 color: const Color(0xFF1E293B).withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: Colors.white10),
@@ -97,7 +102,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                     color: Colors.purpleAccent,
                     onChanged: (val) {
                       setState(() => _musicOn = val);
-                      // İŞTE ÇÖZÜM: Emri doğrudan Ses Bakanına (AudioManager) veriyoruz!
                       AudioManager.manageBgm(val);
                     },
                   ),
@@ -111,7 +115,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                     color: Colors.amberAccent,
                     onChanged: (val) {
                       setState(() => _sfxOn = val);
-                      // İŞTE ÇÖZÜM: Ses verisini anında DataManager'a işliyoruz
                       DataManager.setSound(val);
                     },
                   ),
@@ -128,7 +131,7 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                           backgroundColor: Colors.cyanAccent.shade700,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15))),
-                      child: Text(Dil.get("kapat"),
+                      child: Text(Dil.get("tamam"),
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -145,7 +148,8 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
   }
 
   Widget _buildLangButton(String code) {
-    bool isSelected = Dil.currentLanguage == code;
+    bool isSelected = Dil.currentLanguage.toUpperCase() == code;
+
     return GestureDetector(
       onTap: () => _dilDegistir(code),
       child: Container(
@@ -153,11 +157,9 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
         width: 45,
         height: 45,
         decoration: BoxDecoration(
-            color:
-                // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
-                isSelected
-                    ? Colors.blueAccent
-                    : Colors.white.withValues(alpha: 0.1),
+            color: isSelected
+                ? Colors.blueAccent
+                : Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
             border:
                 isSelected ? Border.all(color: Colors.white, width: 2) : null),
@@ -179,7 +181,6 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-          // UYARI DÜZELTİLDİ: withOpacity -> withValues(alpha:)
           color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(15)),
       child: ListTile(

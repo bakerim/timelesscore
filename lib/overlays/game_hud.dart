@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
 import '../data/progress_manager.dart';
+import '../core/localization.dart';
 
 class GameHUD extends StatefulWidget {
   final TimelessGame game;
@@ -12,38 +14,56 @@ class GameHUD extends StatefulWidget {
 }
 
 class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
-  // Sadece aktif olarak kullandığımız animasyonları bıraktık
   late AnimationController _readyController;
   late Animation<double> _glowAnimation;
+
+  late Timer _timer;
+  int _currentScore = 0;
+  int _bestScore = 0;
 
   @override
   void initState() {
     super.initState();
 
-    // Zaman Bükücü butonunun parlamasını yöneten animasyon
+    // Zaman Bükücü animasyonu
     _readyController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 2000))
       ..repeat(reverse: true);
     _glowAnimation = Tween<double>(begin: 5.0, end: 15.0).animate(
         CurvedAnimation(parent: _readyController, curve: Curves.easeInOut));
+
+    // SENİN DEĞİŞKENİNLE GÜNCELLENDİ (highScore)
+    _bestScore = DataManager.highScore;
+
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (mounted) {
+        setState(() {
+          // SENİN DEĞİŞKENİNLE GÜNCELLENDİ (skor)
+          _currentScore = widget.game.skor;
+
+          // Oynarken rekor kırılırsa ekrandaki BEST anında güncellenir
+          if (_currentScore > _bestScore) {
+            _bestScore = _currentScore;
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    // Çift tanım hatası giderildi: Sadece bir adet dispose metodu var
-    // Olmayan _pulseController satırı silindi, hata temizlendi.
+    _timer.cancel();
     _readyController.dispose();
     super.dispose();
   }
 
-  // Reklam izleyip kristal kazanma fonksiyonu
   void _watchAdAndEarn() {
     widget.game.adManager.showRewardedAd(
       onReward: (amount) {
         setState(() {
           DataManager.totalCoins += 3;
           DataManager.saveData();
-          widget.game.elmasYazisi.text = '💎 ${DataManager.totalCoins}';
+          // elmasYazisi.text satırını sildik çünkü yeni sistemde skorlar buradan yönetiliyor.
         });
       },
       onAdFailed: () => debugPrint("Reklam hatası"),
@@ -59,7 +79,7 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
 
     return Stack(
       children: [
-        // 1. SOL ÜST: LEVEL VE KRİSTAL BİRLEŞİK PANEL
+        // 1. SOL ÜST: KENDİ TASARIMIN (LEVEL VE KRİSTAL PANELİ)
         Positioned(
           top: 0,
           left: 0,
@@ -78,7 +98,6 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // LEVEL GÖSTERGESİ (Senkronize)
                     ValueListenableBuilder<double>(
                       valueListenable: ProgressManager().currentXp,
                       builder: (context, xp, child) {
@@ -113,7 +132,6 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
                       },
                     ),
                     const SizedBox(height: 10),
-                    // KRİSTAL SAYISI VE AKSİYON BUTONLARI
                     Row(
                       children: [
                         const Icon(Icons.diamond,
@@ -125,14 +143,12 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14)),
                         const SizedBox(width: 12),
-                        // MARKET BUTONU (+) -> Market Sayfasına Yönlendirir
                         _SmallButton(
                           icon: Icons.add,
                           color: Colors.green.shade600,
                           onTap: () => widget.game.overlays.add('ShopMenu'),
                         ),
                         const SizedBox(width: 8),
-                        // KRİSTAL KAZAN BUTONU (AD) -> Reklam İzletir
                         _SmallButton(
                           icon: Icons.play_arrow_rounded,
                           color: Colors.orange.shade800,
@@ -147,7 +163,45 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
           ),
         ),
 
-        // 2. SAĞ ALT: ZAMAN BÜKÜCÜ
+        // 2. SAĞ ÜST: YENİ SKOR VE PAUSE PANELİ (FittedBox ile asla taşmaz)
+        Positioned(
+          top: 0,
+          right: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildScoreBox(
+                      Dil.get('puan'), _currentScore, Colors.cyanAccent),
+                  const SizedBox(width: 5),
+                  _buildScoreBox(
+                      Dil.get('rekor'), _bestScore, Colors.amberAccent),
+                  const SizedBox(width: 5),
+                  GestureDetector(
+                    onTap: () {
+                      widget.game
+                          .togglePause(); // pauseEngine() yerine togglePause() kullanıyoruz
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24)),
+                      child: const Icon(Icons.pause_rounded,
+                          color: Colors.white, size: 24),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 3. SAĞ ALT: ZAMAN BÜKÜCÜ
         Positioned(
           bottom: 160,
           right: 20,
@@ -215,6 +269,48 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
           ),
         ),
       ],
+    );
+  }
+
+  // TAŞMAYI ÖNLEYEN KUTU (FittedBox)
+  Widget _buildScoreBox(String title, int score, Color highlightColor) {
+    return Container(
+      width: 65,
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: highlightColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 9,
+                fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: 18,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Text(
+                "$score",
+                style: TextStyle(
+                  color: highlightColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

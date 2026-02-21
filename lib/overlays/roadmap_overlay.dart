@@ -65,7 +65,6 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
     });
 
     // UI'daki kristal sayısını anında güncelle
-    widget.game.elmasYazisi.text = '💎 ${DataManager.totalCoins}';
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Row(children: [

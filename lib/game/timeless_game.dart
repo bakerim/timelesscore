@@ -15,21 +15,23 @@ import '../data/progress_manager.dart';
 import '../data/purchase_manager.dart';
 import 'ad_manager.dart';
 import '../core/audio_manager.dart';
-import '../core/theme_manager.dart'; // YENİ: Tema Bakanlığını ekledik!
+import '../core/theme_manager.dart';
 
 import 'components/kare.dart';
-import 'components/pause_button.dart';
 import 'components/star_background.dart';
+// Pause_button importu silindi, artık GameHUD içinden yönetiliyor.
 
 class TimelessGame extends FlameGame
     with PanDetector, HasCollisionDetection, TapCallbacks {
   late final AdManager adManager;
 
-  late TextComponent skorYazisi, yuksekSkorYazisi, elmasYazisi, comboYazisi;
+  // ESKİ SKOR VE ELMAS YAZILARI SİLİNDİ (Artık Flutter GameHUD yönetiyor)
+  late TextComponent comboYazisi;
   Kare? oyuncu;
 
+  // --- OYUN AYARLARI ---
   final double gridSize = 50.0;
-  final double hudHeight = 110.0;
+  final double hudHeight = 110.0; // Ferah oyun alanı
   final double safeBottomArea = 100.0;
   final Random _rng = Random();
 
@@ -50,6 +52,7 @@ class TimelessGame extends FlameGame
       isReviveScreenOpen = false,
       reviveUsed = false;
 
+  // --- KAYDIRMA HASSASİYETİ ---
   double suruklemeBirikimiX = 0, suruklemeBirikimiY = 0;
   bool dropLock = false;
 
@@ -57,9 +60,6 @@ class TimelessGame extends FlameGame
     ..color = const Color.fromARGB(12, 255, 255, 255)
     ..style = PaintingStyle.fill;
 
-  // ==========================================
-  // İŞTE DEVRİM BURADA: ARKA PLAN RENGİ ARTIK TEMADAN GELİYOR!
-  // ==========================================
   GameTheme get currentTheme => ThemeManager.getTheme(DataManager.activeTheme);
 
   @override
@@ -83,39 +83,12 @@ class TimelessGame extends FlameGame
   }
 
   void _buildUI() {
+    // HUD arka planı
     add(RectangleComponent(
         position: Vector2(0, 0),
         size: Vector2(size.x, hudHeight),
         paint: Paint()..color = const Color(0xFF1E293B).withValues(alpha: 0.6),
         priority: 5));
-
-    skorYazisi = TextComponent(
-        text: '0',
-        textRenderer: TextPaint(
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 55,
-                fontWeight: FontWeight.w900)),
-        position: Vector2(size.x / 2, 40),
-        anchor: Anchor.topCenter,
-        priority: 10);
-
-    yuksekSkorYazisi = TextComponent(
-        text: 'BEST: ${DataManager.highScore}',
-        textRenderer: TextPaint(
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 12,
-                fontWeight: FontWeight.bold)),
-        position: Vector2(size.x / 2, 105),
-        anchor: Anchor.topCenter,
-        priority: 10);
-
-    elmasYazisi = TextComponent(
-        text: '💎 ${DataManager.totalCoins}',
-        textRenderer: TextPaint(
-            style: const TextStyle(fontSize: 1, color: Colors.transparent)),
-        position: Vector2(-100, -100));
 
     comboYazisi = TextComponent(
         text: '',
@@ -128,21 +101,13 @@ class TimelessGame extends FlameGame
         anchor: Anchor.center,
         priority: 20);
 
-    add(PauseButton(
-        position: Vector2(size.x - 50, 50), onTapAction: togglePause));
-
-    add(skorYazisi);
-    add(yuksekSkorYazisi);
-    add(elmasYazisi);
     add(comboYazisi);
   }
 
   @override
   void render(Canvas canvas) {
-    // Hizalama Matematği: hudHeight + 10 (Boşluk) üzerinden hesaplanmalı
     double sy = hudHeight + 10, ey = size.y - safeBottomArea;
-    int r = ((ey - sy) / gridSize).floor();
-    int col = (size.x / gridSize).floor();
+    int r = ((ey - sy) / gridSize).floor(), col = (size.x / gridSize).floor();
     double off = (size.x - col * gridSize) / 2;
 
     for (int i = 0; i < col; i++) {
@@ -159,10 +124,8 @@ class TimelessGame extends FlameGame
     if (isTimeSlowed) {
       _slowMoOpacity =
           0.2 + (sin(DateTime.now().millisecondsSinceEpoch / 200) * 0.15);
-
-      // YENİ: Zaman Yavaşlatma efekti bile seçili temanın yıldız rengine uyum sağlar!
-      _timeWarpPaint.color =
-          currentTheme.starColor.withValues(alpha: _slowMoOpacity.clamp(0, 1));
+      _timeWarpPaint.color = currentTheme.starColor
+          .withValues(alpha: _slowMoOpacity.clamp(0.0, 1.0));
       canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), _timeWarpPaint);
     }
     super.render(canvas);
@@ -184,13 +147,14 @@ class TimelessGame extends FlameGame
 
   void blokKatilastir(Kare k, {bool hizliIndiMi = false}) {
     k.tur = "duvar";
-    AudioManager.playSfx('sfx/drop.mp3');
+    try {
+      AudioManager.playSfx('sfx/drop.mp3');
+    } catch (e) {}
 
     if (!hizliIndiMi) {
       puanEkle(1);
     }
 
-    // Zaman Bükücü Düzeltmesi: Blok katılaştığı an hızı kontrol et
     if (!isTimeSlowed) {
       oyunHizi = normalOyunHizi;
     }
@@ -244,23 +208,18 @@ class TimelessGame extends FlameGame
       _showFloatingText("+$kazanilanPuan", Colors.amberAccent);
     }
 
-    AudioManager.playSfx('sfx/clear.mp3');
+    try {
+      AudioManager.playSfx('sfx/clear.mp3');
+    } catch (e) {}
+
     if (!kIsWeb) HapticFeedback.heavyImpact();
 
     for (int y in doluSatirlar) {
       for (var k in satirlar[y]!) {
         k.isRemoving = true;
-
-        // --- HATA BURADAYDI, DÜZELTTİK ---
-        // OpacityEffect yerine sadece ScaleEffect kullanarak patlama hissi veriyoruz
-        // Bu sayede "Unsupported operation" hatasından kurtuluyoruz.
-        k.add(
-          ScaleEffect.to(
-            Vector2.all(0.0),
+        k.add(ScaleEffect.to(Vector2.all(0.0),
             EffectController(duration: 0.3, curve: Curves.easeInBack),
-            onComplete: () => k.removeFromParent(),
-          ),
-        );
+            onComplete: () => k.removeFromParent()));
       }
     }
 
@@ -284,7 +243,7 @@ class TimelessGame extends FlameGame
 
   void puanEkle(int miktar) {
     skor += miktar;
-    skorYazisi.text = '$skor';
+    // skorYazisi.text = '$skor'; SATIRI SİLİNDİ
 
     ProgressManager().addXp(miktar);
 
@@ -292,7 +251,7 @@ class TimelessGame extends FlameGame
       DataManager.totalCoins += 1;
       buOyunKazanilanKristal += 1;
       DataManager.saveData();
-      elmasYazisi.text = '💎 ${DataManager.totalCoins}';
+      // elmasYazisi.text = ... SATIRI SİLİNDİ
       _showFloatingText("+1 KRİSTAL", Colors.cyanAccent);
     }
 
@@ -303,7 +262,9 @@ class TimelessGame extends FlameGame
       if (!isTimeSlowed) {
         oyunHizi = normalOyunHizi;
       }
-      AudioManager.playSfx('sfx/level_up.mp3');
+      try {
+        AudioManager.playSfx('sfx/level_up.mp3');
+      } catch (e) {}
     }
   }
 
@@ -311,7 +272,6 @@ class TimelessGame extends FlameGame
     children.whereType<Kare>().forEach((k) => k.removeFromParent());
     overlays.clear();
     skor = 0;
-    skorYazisi.text = '0';
     currentLevel = 1;
     comboSayaci = 0;
     comboYazisi.text = '';
@@ -325,21 +285,42 @@ class TimelessGame extends FlameGame
     overlays.add('AnaMenu');
   }
 
+  // --- TELEFON FİZİKSEL GERİ TUŞU YÖNETİMİ ---
   bool onBackPressed() {
-    if (overlays.isActive('AnaMenu')) return true;
-
-    if (overlays.isActive('ShopMenu') ||
-        overlays.isActive('ThemeMenu') || // YENİ: Tema menüsü eklendi
-        overlays.isActive('DailySpin') ||
-        overlays.isActive('SettingsMenu') ||
-        overlays.isActive('Roadmap')) {
-      anaMenuyeDon();
+    // 1. Ekstra menüler açıksa onları kapat
+    if (overlays.isActive('Roadmap')) {
+      overlays.remove('Roadmap');
+      return false;
+    } else if (overlays.isActive('ShopMenu')) {
+      overlays.remove('ShopMenu');
+      return false;
+    } else if (overlays.isActive('ThemeMenu')) {
+      overlays.remove('ThemeMenu');
+      return false;
+    } else if (overlays.isActive('DailySpin')) {
+      overlays.remove('DailySpin');
+      return false;
+    } else if (overlays.isActive('SettingsMenu')) {
+      overlays.remove('SettingsMenu');
+      if (isPaused && !overlays.isActive('GameHUD')) {
+        overlays.add('AnaMenu');
+      }
       return false;
     }
-
-    if (!isPaused && !isGameOver) {
+    // 2. Ana Menü açıksa uygulamadan çıkmasına izin ver
+    else if (overlays.isActive('AnaMenu')) {
+      return true;
+    }
+    // 3. Oyun oynanıyorsa, duraklatma menüsünü (Pause) açar
+    else if (overlays.isActive('GameHUD')) {
       togglePause();
-    } else if (isPaused && overlays.isActive('PauseMenu')) anaMenuyeDon();
+      return false;
+    }
+    // 4. Oyun zaten duraklatılmışsa, geri tuşuna basınca oyuna devam eder
+    else if (overlays.isActive('PauseMenu')) {
+      togglePause();
+      return false;
+    }
 
     return false;
   }
@@ -348,15 +329,15 @@ class TimelessGame extends FlameGame
     children.whereType<Kare>().forEach((k) => k.removeFromParent());
     overlays.clear();
     skor = 0;
-    skorYazisi.text = '0';
     comboSayaci = 0;
     comboYazisi.text = '';
     buOyunKazanilanKristal = 0;
     reviveUsed = false;
     isGameOver = false;
+    isTimeSlowed = false;
+
     normalOyunHizi = core.GameConfig.initialSpeedMs / 1000.0;
     oyunHizi = normalOyunHizi;
-    isTimeSlowed = false;
 
     overlays.add('GameHUD');
     isPaused = false;
@@ -371,13 +352,11 @@ class TimelessGame extends FlameGame
   void spawnOyuncu({bool zorla = false}) {
     if (isGameOver || isPaused || isReviveScreenOpen) return;
 
-    // ÖNEMLİ: dropLock burada sıfırlanmaz! Sadece onPanEnd ile sıfırlanır.
-
     oyuncu = Kare(gridSize, bazRenk: _getLevelBasedColor(), tur: "oyuncu");
     oyuncu!.position = Vector2(
         ((size.x - ((size.x / gridSize).floor() * gridSize)) / 2) +
             ((size.x / gridSize).floor() / 2).floor() * gridSize,
-        hudHeight + 10); // Boşluğu azalttık
+        hudHeight + 10);
     add(oyuncu!);
   }
 
@@ -416,28 +395,22 @@ class TimelessGame extends FlameGame
   void manuelZamanYavaslat() {
     if (isGameOver || isPaused || isTimeSlowed || isReviveScreenOpen) return;
     const int maliyet = 5;
-
     if (DataManager.totalCoins >= maliyet) {
       DataManager.totalCoins -= maliyet;
       DataManager.saveData();
-      elmasYazisi.text = '💎 ${DataManager.totalCoins}';
 
       isTimeSlowed = true;
       oyunHizi = normalOyunHizi * 3.5;
 
-      // GARANTİCİ YAKLAŞIM: Ses dosyasını try-catch içine alıyoruz
       try {
         AudioManager.playSfx('sfx/slow_motion.mp3');
-      } catch (e) {
-        debugPrint("Ses çalınamadı ama oyun devam ediyor.");
-      }
+      } catch (e) {}
 
       add(TimerComponent(
           period: 5.0,
           removeOnFinish: true,
           onTick: () {
             isTimeSlowed = false;
-            // Eğer oyun o sırada duraklatılmamışsa hızı geri al
             if (!isPaused) oyunHizi = normalOyunHizi;
           }));
     }
@@ -452,17 +425,22 @@ class TimelessGame extends FlameGame
         });
   }
 
+  void altSatirlariTemizle() {
+    children.whereType<Kare>().where((k) => k.tur == "duvar").forEach((k) {
+      k.removeFromParent();
+    });
+  }
+
   void devamEtIslemi() {
     overlays.remove('ReviveMenu');
     isReviveScreenOpen = false;
     reviveUsed = true;
-    altSatirlariTemizle(6);
+    altSatirlariTemizle();
     isGameOver = false;
     isPaused = false;
     resumeEngine();
     spawnOyuncu(zorla: true);
     overlays.add('GameHUD');
-    elmasYazisi.text = '💎 ${DataManager.totalCoins}';
   }
 
   void vazgecVeBitir() {
@@ -471,28 +449,19 @@ class TimelessGame extends FlameGame
   }
 
   Future<void> oyunuBitir() async {
-    if (isGameOver) return; // Çift tetiklenmeyi önlemek için kalkan
+    if (isGameOver) return;
 
     isGameOver = true;
     isPaused = true;
 
-    // 1. ADIM: Skoru hemen kaydet (Garanti olsun)
     await DataManager.saveScore(skor);
-
-    // 2. ADIM: Müziği sustur ve motoru dondur
     AudioManager.manageBgm(false);
     pauseEngine();
 
-    // 3. ADIM: REKLAM KONTROLÜ (Agent'ın bahsettiği çakışmayı burada çözüyoruz)
-    // Reklama diyoruz ki: "Sen işini bitirince (kapanınca veya hata verince)
-    // şu parantez içindeki menü kodlarını çalıştır."
     adManager.showInterstitialAd(
       onAdDismissed: () {
-        // Reklam ekranı kapandığı an burası tetiklenir
         overlays.remove('GameHUD');
         overlays.add('GameOver');
-
-        // Temizlik: Oyuncu bloğunu ekrandan kaldır
         if (oyuncu != null) {
           oyuncu!.removeFromParent();
           oyuncu = null;
@@ -513,18 +482,6 @@ class TimelessGame extends FlameGame
     }
   }
 
-  void altSatirlariTemizle(int n) {
-    List<Kare> duvarlar =
-        children.whereType<Kare>().where((k) => k.tur == "duvar").toList();
-    duvarlar.sort((a, b) => b.position.y.compareTo(a.position.y));
-    for (int i = 0; i < min(duvarlar.length, n * 5); i++) {
-      duvarlar[i].removeFromParent();
-    }
-  }
-
-  // ==========================================
-  // İŞTE İKİNCİ DEVRİM: BLOK RENKLERİ ARTIK TEMADAN ÇEKİLİYOR!
-  // ==========================================
   Color _getLevelBasedColor() {
     final List<Color> themeColors = currentTheme.blockColors;
     return themeColors[_rng.nextInt(themeColors.length)];
@@ -564,13 +521,18 @@ class TimelessGame extends FlameGame
 
     if (info.delta.global.x.abs() > info.delta.global.y.abs()) {
       suruklemeBirikimiX += info.delta.global.x;
-      if (suruklemeBirikimiX.abs() >= gridSize) {
+      if (suruklemeBirikimiX.abs() >= gridSize * 0.7) {
         _hareketEt(oyuncu!, suruklemeBirikimiX.sign.toInt());
         suruklemeBirikimiX = 0;
       }
-    } else if (info.delta.global.y > 15 && !dropLock) {
-      dropLock = true;
-      hizliIndir(oyuncu!);
+      suruklemeBirikimiY = 0;
+    } else {
+      suruklemeBirikimiY += info.delta.global.y;
+      if (suruklemeBirikimiY > 35 && !dropLock) {
+        dropLock = true;
+        hizliIndir(oyuncu!);
+        suruklemeBirikimiY = 0;
+      }
     }
   }
 
@@ -578,6 +540,14 @@ class TimelessGame extends FlameGame
   void onPanEnd(DragEndInfo info) {
     dropLock = false;
     suruklemeBirikimiX = 0;
+    suruklemeBirikimiY = 0;
+  }
+
+  @override
+  void onPanCancel() {
+    dropLock = false;
+    suruklemeBirikimiX = 0;
+    suruklemeBirikimiY = 0;
   }
 
   void _hareketEt(Kare k, int dx) {
@@ -586,7 +556,9 @@ class TimelessGame extends FlameGame
         nx <= size.x - gridSize &&
         !carpismaVarMi(nx, k.position.y)) {
       k.position.x = nx;
-      AudioManager.playSfx('sfx/drop.mp3');
+      try {
+        AudioManager.playSfx('sfx/drop.mp3');
+      } catch (e) {}
     }
   }
 

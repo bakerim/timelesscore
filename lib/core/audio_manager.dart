@@ -3,35 +3,90 @@ import 'package:flutter/foundation.dart';
 import '../data/data_manager.dart';
 
 class AudioManager {
-  // Sınıfı "static" yapıyoruz ki her yerden (menülerden, ayarlardan, oyundan)
-  // nesne üretmeden doğrudan AudioManager.playSfx() diye çağırabilelim!
+  // --- YENİ EKLENEN: SES HAVUZLARI (PERFORMANS İÇİN) ---
+  // Sürekli çağrılan seslerin RAM'i şişirmesini engeller.
+  static AudioPool? _dropPool;
+  static AudioPool? _clearPool;
+
+  // --- YENİ EKLENEN: ANTI-SPAM ZAMANLAYICILARI ---
+  // Aynı milisaniye içinde 10 tane sesin üst üste binip patlamasını önler.
+  static DateTime _lastDropTime = DateTime.now();
+  static DateTime _lastClearTime = DateTime.now();
 
   static Future<void> init() async {
-    // 1. ÖNBELLEKLEME (CACHE): Performans için tüm sesleri baştan RAM'e yüklüyoruz.
     try {
+      // 1. Standart/Nadir seslerin önbelleğe alınması
       await FlameAudio.audioCache.loadAll([
-        'sfx/drop.mp3',
-        'sfx/clear.mp3',
         'sfx/level_up.mp3',
         'sfx/slow_motion.mp3',
-        'sfx/move.mp3', // Arka plan müziğimiz
+        'sfx/move.mp3', // Arka plan müziği
       ]);
-      debugPrint("AudioManager: Tüm ses dosyaları RAM'e yüklendi. 🚀");
+
+      // 2. ÇOK TEKRAR EDEN SESLER İÇİN "AUDIO POOL" (SES HAVUZU)
+      // Maksimum 3-4 kanal açar. Böylece 1 saat de oynasan oyun kasmaz!
+      _dropPool = await FlameAudio.createPool(
+        'sfx/drop.mp3',
+        minPlayers: 1,
+        maxPlayers: 4,
+      );
+
+      _clearPool = await FlameAudio.createPool(
+        'sfx/clear.mp3',
+        minPlayers: 1,
+        maxPlayers: 3,
+      );
+
+      debugPrint(
+          "AudioManager: AAA Seviye Ses Motoru ve Havuzları Başlatıldı. 🚀");
     } catch (e) {
       debugPrint("AudioManager: Sesler yüklenirken hata oluştu: $e");
     }
   }
 
-  // 2. EFEKT ÇALICI (Sadece Ayarlardan ses açıksa çalar)
+  // EFEKT ÇALICI (Akıllı Yönlendirme)
   static void playSfx(String file) {
-    if (DataManager.isSoundOn) {
-      FlameAudio.play(file);
+    // Ses kapalıysa hiç işlem yapma
+    if (!DataManager.isSoundOn) return;
+
+    try {
+      final now = DateTime.now();
+
+      // DÜŞME SESİ (Çok sık çalar)
+      if (file == 'sfx/drop.mp3') {
+        // 50 milisaniye kalkanı: Bloklar aynı anda inerse sadece 1 ses çıkar.
+        if (now.difference(_lastDropTime).inMilliseconds < 50) return;
+        _lastDropTime = now;
+
+        if (_dropPool != null) {
+          _dropPool!.start();
+        } else {
+          FlameAudio.play(file); // Havuz yüklenemediyse klasik yöntem
+        }
+      }
+      // TEMİZLENME SESİ
+      else if (file == 'sfx/clear.mp3') {
+        // 100 milisaniye kalkanı
+        if (now.difference(_lastClearTime).inMilliseconds < 100) return;
+        _lastClearTime = now;
+
+        if (_clearPool != null) {
+          _clearPool!.start();
+        } else {
+          FlameAudio.play(file);
+        }
+      }
+      // DİĞER (Nadir) SESLER
+      else {
+        FlameAudio.play(file);
+      }
+    } catch (e) {
+      debugPrint("Ses çalma hatası: $e");
     }
   }
 
   // 3. MÜZİK YÖNETİCİSİ
   static void manageBgm(bool play) {
-    DataManager.setMusic(play); // Veritabanını anında güncelle
+    DataManager.setMusic(play);
     if (play) {
       if (!FlameAudio.bgm.isPlaying) {
         try {
@@ -54,12 +109,15 @@ class AudioManager {
   // 5. OYUN DEVAM ETTİĞİNDE MÜZİĞİ SÜRDÜR
   static void resumeBgm() {
     if (DataManager.isMusicOn && !FlameAudio.bgm.isPlaying) {
-      manageBgm(true); // Kaldığı yerden veya baştan başlatır
+      manageBgm(true);
     }
   }
 
   // 6. OYUN KOMPLE KAPATILDIĞINDA HAFIZAYI TEMİZLE
   static void dispose() {
     FlameAudio.bgm.dispose();
+    // Havuzları da hafızadan siliyoruz
+    _dropPool?.dispose();
+    _clearPool?.dispose();
   }
 }

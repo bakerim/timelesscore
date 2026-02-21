@@ -82,7 +82,7 @@ class _ReviveMenuState extends State<ReviveMenu>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  Dil.get("ikinci_sans"), // HATA VEREN KISIM TEMİZLENDİ
+                  Dil.get("İkinci Şans"), // HATA VEREN KISIM TEMİZLENDİ
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 32,
@@ -94,7 +94,7 @@ class _ReviveMenuState extends State<ReviveMenu>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  Dil.get("devam_et_aciklama"), // HATA VEREN KISIM TEMİZLENDİ
+                  Dil.get("Devam Et"), // HATA VEREN KISIM TEMİZLENDİ
                   style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
                 const SizedBox(height: 40),
@@ -140,7 +140,7 @@ class _ReviveMenuState extends State<ReviveMenu>
                     _timer.cancel();
                     widget.game.vazgecVeBitir();
                   },
-                  child: Text(Dil.get("vazgec"), // HATA VEREN KISIM TEMİZLENDİ
+                  child: Text(Dil.get("Vazgeç"), // HATA VEREN KISIM TEMİZLENDİ
                       style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 16,
@@ -158,7 +158,7 @@ class _ReviveMenuState extends State<ReviveMenu>
   Widget _buildReviveButton() {
     // HATA VEREN KISIMLAR TEMİZLENDİ
     String buttonText =
-        _canTap ? Dil.get("izle_devam_et") : Dil.get("reklam_yukleniyor");
+        _canTap ? Dil.get("İzle Devam Et") : Dil.get("Reklam Yükleniyor");
     Color buttonColor =
         _canTap ? Colors.greenAccent.shade700 : Colors.grey.shade800;
     IconData buttonIcon = _canTap

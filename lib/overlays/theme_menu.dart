@@ -71,8 +71,6 @@ class _ThemeMenuState extends State<ThemeMenu> {
         DataManager.saveData(); // Cüzdanı kaydet
         _updateUI();
 
-        widget.game.elmasYazisi.text =
-            '💎 ${DataManager.totalCoins}'; // Oyundaki yazıyı da güncelle
         _showSnack(
             "${theme.name} satın alındı ve uygulandı!", Colors.orangeAccent);
       } else {
