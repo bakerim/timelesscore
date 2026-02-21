@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
+import '../core/localization.dart';
 
 class GameOver extends StatefulWidget {
   final TimelessGame game;
@@ -22,7 +23,6 @@ class _GameOverState extends State<GameOver>
   @override
   void initState() {
     super.initState();
-    // Ekrana pat diye gelmesin, yumuşak bir bounce (yaylanma) efektiyle gelsin
     _animController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 600));
     _scaleAnimation =
@@ -36,59 +36,47 @@ class _GameOverState extends State<GameOver>
     super.dispose();
   }
 
-  // --- 1. ÖDÜL: SKORU 2'YE KATLA ---
   void _watchScoreAd() {
     widget.game.adManager.showRewardedAd(
       onReward: (amount) {
         setState(() {
           widget.game.skor *= 2;
-          DataManager.saveScore(
-              widget.game.skor); // Yeni skoru rekor kontrolü için kaydet
+          DataManager.saveScore(widget.game.skor);
           isScoreAdWatched = true;
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Skor 2'ye Katlandı! 🚀",
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ));
+        _showToast("Skor 2'ye Katlandı! 🚀", Colors.green);
       },
       onAdFailed: () => _showError(),
     );
   }
 
-  // --- 2. ÖDÜL: EKSTRA KRİSTAL ---
   void _watchCrystalAd() {
     widget.game.adManager.showRewardedAd(
       onReward: (amount) {
         setState(() {
-          // Eğer oyunda hiç kristal kazanamadıysa teselli olarak 2 tane ver, kazandıysa kazandığı kadar ekstra ver (x2 mantığı)
           int bonus = widget.game.buOyunKazanilanKristal > 0
               ? widget.game.buOyunKazanilanKristal
               : 2;
-
           DataManager.totalCoins += bonus;
           DataManager.saveData();
           isCrystalAdWatched = true;
-
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("+$bonus Zaman Kristali Reklam Bonusu! 💎",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.cyan.shade800,
-            behavior: SnackBarBehavior.floating,
-          ));
         });
+        _showToast("Kristalleriniz Katlandı! 💎", Colors.cyan);
       },
       onAdFailed: () => _showError(),
     );
   }
 
-  void _showError() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text("Reklam yüklenemedi, lütfen bağlantını kontrol et."),
-      backgroundColor: Colors.redAccent,
+  void _showToast(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: color,
       behavior: SnackBarBehavior.floating,
     ));
+  }
+
+  void _showError() {
+    _showToast("Reklam yüklenemedi, bağlantını kontrol et.", Colors.redAccent);
   }
 
   @override
@@ -97,12 +85,9 @@ class _GameOverState extends State<GameOver>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Arka Plan Blur Efekti
           BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
               child: Container(color: Colors.black.withValues(alpha: 0.85))),
-
-          // Ana İçerik Kutusu
           Center(
             child: ScaleTransition(
               scale: _scaleAnimation,
@@ -124,12 +109,11 @@ class _GameOverState extends State<GameOver>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // --- BAŞLIK ---
                     const Icon(Icons.videogame_asset_off_rounded,
                         color: Colors.redAccent, size: 60),
                     const SizedBox(height: 10),
-                    const Text("OYUN BİTTİ",
-                        style: TextStyle(
+                    Text(Dil.get('oyun_bitti').toUpperCase(),
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
@@ -137,151 +121,44 @@ class _GameOverState extends State<GameOver>
                     const SizedBox(height: 25),
 
                     // --- SKOR BÖLÜMÜ ---
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Column(
-                        children: [
-                          Text("SKOR",
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2)),
-                          Text("${widget.game.skor}",
-                              style: const TextStyle(
-                                  color: Colors.cyanAccent,
-                                  fontSize: 45,
-                                  fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 10),
-                          isScoreAdWatched
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                      Icon(Icons.check_circle,
-                                          color: Colors.green, size: 18),
-                                      SizedBox(width: 5),
-                                      Text("2'YE KATLANDI",
-                                          style: TextStyle(
-                                              color: Colors.green,
-                                              fontWeight: FontWeight.bold))
-                                    ])
-                              : SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange.shade700,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      elevation: 5,
-                                    ),
-                                    onPressed: _watchScoreAd,
-                                    icon: const Icon(
-                                        Icons.ondemand_video_rounded,
-                                        size: 20),
-                                    label: const Text("SKORU 2'YE KATLA",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                        ],
-                      ),
+                    _resultBox(
+                      label: Dil.get('skor').toUpperCase(),
+                      value: "${widget.game.skor}",
+                      color: Colors.cyanAccent,
+                      isWatched: isScoreAdWatched,
+                      onWatch: _watchScoreAd,
+                      btnText: "SKORU x2 YAP",
                     ),
 
                     const SizedBox(height: 15),
 
                     // --- KRİSTAL BÖLÜMÜ ---
-                    Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Column(
-                        children: [
-                          Text("KAZANILAN KRİSTAL",
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2)),
-                          const SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text("${widget.game.buOyunKazanilanKristal}",
-                                  style: const TextStyle(
-                                      color: Colors.purpleAccent,
-                                      fontSize: 35,
-                                      fontWeight: FontWeight.w900)),
-                              const SizedBox(width: 5),
-                              const Icon(Icons.diamond_rounded,
-                                  color: Colors.purpleAccent, size: 30),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          isCrystalAdWatched
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                      Icon(Icons.check_circle,
-                                          color: Colors.green, size: 18),
-                                      SizedBox(width: 5),
-                                      Text("BONUS ALINDI",
-                                          style: TextStyle(
-                                              color: Colors.green,
-                                              fontWeight: FontWeight.bold))
-                                    ])
-                              : SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.purple.shade600,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      elevation: 5,
-                                    ),
-                                    onPressed: _watchCrystalAd,
-                                    icon: const Icon(
-                                        Icons.play_circle_fill_rounded,
-                                        size: 20),
-                                    label: const Text("EKSTRA KRİSTAL AL",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                        ],
-                      ),
+                    _resultBox(
+                      label: "KRİSTAL",
+                      value: "${widget.game.buOyunKazanilanKristal}",
+                      color: Colors.purpleAccent,
+                      isWatched: isCrystalAdWatched,
+                      onWatch: _watchCrystalAd,
+                      btnText: "KRİSTAL x2 YAP",
+                      icon: Icons.diamond_rounded,
                     ),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 30),
 
-                    // --- ANA MENÜYE DÖN ---
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                            backgroundColor:
-                                Colors.white.withValues(alpha: 0.1),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15))),
-                        onPressed: () {
-                          // Kusursuz Navigasyon: TimelessGame içindeki metod çağrılır
-                          widget.game.anaMenuyeDon();
-                        },
-                        child: const Text("ANA MENÜYE DÖN",
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1)),
-                      ),
-                    )
+                    // --- BUTONLAR ---
+                    _actionButton(
+                      label: Dil.get('tekrar_oyna').toUpperCase(),
+                      color: Colors.cyanAccent.shade700,
+                      onPressed: () => widget.game.oyunuBaslat(),
+                      icon: Icons.refresh_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    _actionButton(
+                      label: Dil.get('ana_menu').toUpperCase(),
+                      color: Colors.white.withValues(alpha: 0.1),
+                      onPressed: () => widget.game.anaMenuyeDon(),
+                      isTextBtn: true,
+                    ),
                   ],
                 ),
               ),
@@ -289,6 +166,109 @@ class _GameOverState extends State<GameOver>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _resultBox({
+    required String label,
+    required String value,
+    required Color color,
+    required bool isWatched,
+    required VoidCallback onWatch,
+    required String btnText,
+    IconData? icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        children: [
+          Text(label,
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value,
+                  style: TextStyle(
+                      color: color, fontSize: 35, fontWeight: FontWeight.w900)),
+              if (icon != null) ...[
+                const SizedBox(width: 5),
+                Icon(icon, color: color, size: 28),
+              ]
+            ],
+          ),
+          const SizedBox(height: 8),
+          isWatched
+              ? const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    SizedBox(width: 5),
+                    Text("KATLANDI",
+                        style: TextStyle(
+                            color: Colors.green, fontWeight: FontWeight.bold)),
+                  ],
+                )
+              : SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: color.withValues(alpha: 0.8),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10))),
+                    onPressed: onWatch,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: Text(btnText,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+    IconData? icon,
+    bool isTextBtn = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: isTextBtn
+          ? TextButton(
+              style: TextButton.styleFrom(
+                  backgroundColor: color,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15))),
+              onPressed: onPressed,
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Colors.white70, fontWeight: FontWeight.bold)),
+            )
+          : ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15))),
+              onPressed: onPressed,
+              icon: icon != null ? Icon(icon) : const SizedBox(),
+              label: Text(label,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2)),
+            ),
     );
   }
 }

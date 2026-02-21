@@ -32,13 +32,11 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
     _glowAnimation = Tween<double>(begin: 5.0, end: 15.0).animate(
         CurvedAnimation(parent: _readyController, curve: Curves.easeInOut));
 
-    // SENİN DEĞİŞKENİNLE GÜNCELLENDİ (highScore)
     _bestScore = DataManager.highScore;
 
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (mounted) {
         setState(() {
-          // SENİN DEĞİŞKENİNLE GÜNCELLENDİ (skor)
           _currentScore = widget.game.skor;
 
           // Oynarken rekor kırılırsa ekrandaki BEST anında güncellenir
@@ -63,7 +61,6 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
         setState(() {
           DataManager.totalCoins += 3;
           DataManager.saveData();
-          // elmasYazisi.text satırını sildik çünkü yeni sistemde skorlar buradan yönetiliyor.
         });
       },
       onAdFailed: () => debugPrint("Reklam hatası"),
@@ -89,6 +86,7 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
+                  // DÜZELTME: withOpacity -> withValues(alpha: ...)
                   color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(
@@ -110,7 +108,8 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
                               children: [
                                 const Icon(Icons.military_tech,
                                     color: Colors.amberAccent, size: 14),
-                                Text(" LEVEL $level",
+                                // DİL SİSTEMİ EKLENDİ (SEVİYE)
+                                Text(" ${Dil.get('seviye')} $level",
                                     style: const TextStyle(
                                         color: Colors.cyanAccent,
                                         fontWeight: FontWeight.w900,
@@ -173,6 +172,7 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // DİL SİSTEMİ ZATEN DÜZGÜN KULLANILMIŞ
                   _buildScoreBox(
                       Dil.get('puan'), _currentScore, Colors.cyanAccent),
                   const SizedBox(width: 5),
@@ -181,8 +181,7 @@ class _GameHUDState extends State<GameHUD> with TickerProviderStateMixin {
                   const SizedBox(width: 5),
                   GestureDetector(
                     onTap: () {
-                      widget.game
-                          .togglePause(); // pauseEngine() yerine togglePause() kullanıyoruz
+                      widget.game.togglePause();
                     },
                     child: Container(
                       width: 40,

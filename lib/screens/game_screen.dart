@@ -16,6 +16,7 @@ import '../overlays/roadmap_overlay.dart';
 import '../overlays/revive_menu.dart';
 import '../overlays/daily_spin_overlay.dart';
 import '../overlays/game_hud.dart';
+import '../overlays/theme_menu.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -121,11 +122,15 @@ class _GameScreenState extends State<GameScreen>
                     DailySpinOverlay(game: game as TimelessGame),
                 'SettingsMenu': (context, game) =>
                     SettingsOverlay(game: game as TimelessGame),
+                'ThemeMenu': (context, game) => 
+                    ThemeMenu(game: game as TimelessGame),    
               },
             ),
 
             // 3. KATMAN: ALT BANNER REKLAM (ShopMenu Açıksa Gizlenir)
-            if (_isBannerLoaded && _bannerAd != null && !game.overlays.isActive('ShopMenu'))
+            if (_isBannerLoaded &&
+                _bannerAd != null &&
+                !game.overlays.isActive('ShopMenu'))
               Positioned(
                 bottom: 0,
                 left: 0,
