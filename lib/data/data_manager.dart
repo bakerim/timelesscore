@@ -38,9 +38,7 @@ class DataManager {
     lastSpinDate = _prefs.getString('lastSpinDate') ?? "";
 
     List<String>? savedRewards = _prefs.getStringList('claimedRewards');
-    if (savedRewards != null) {
-      claimedRewards = savedRewards.map((e) => int.parse(e)).toList();
-    }
+    claimedRewards = savedRewards?.map((e) => int.parse(e)).toList() ?? [];
 
     // YENİ: Temaları Yükle
     activeTheme = _prefs.getString('activeTheme') ?? 'classic_neon';

@@ -30,7 +30,11 @@ class _GameScreenState extends State<GameScreen>
   final TimelessGame game = TimelessGame();
 
   BannerAd? _bannerAd;
-  bool _isBannerLoaded = false;
+
+  // SİHİRLİ DOKUNUŞ: setState yerine ValueNotifier kullanıyoruz!
+  // Bu sayede reklam yenilendiğinde tüm sayfa (ve oyun motoru) çöküp baştan çizilmez.
+  final ValueNotifier<bool> _isBannerLoadedNotifier = ValueNotifier(false);
+
   late AnimationController _bgController;
 
   @override
@@ -54,9 +58,8 @@ class _GameScreenState extends State<GameScreen>
       listener: BannerAdListener(
         onAdLoaded: (ad) {
           if (mounted) {
-            setState(() {
-              _isBannerLoaded = true;
-            });
+            // ARTIK SETSTATE YOK! Sadece reklam kutusuna "ben hazırım" haberi gönderiyoruz.
+            _isBannerLoadedNotifier.value = true;
           }
         },
         onAdFailedToLoad: (ad, error) {
@@ -71,6 +74,7 @@ class _GameScreenState extends State<GameScreen>
   void dispose() {
     _bannerAd?.dispose();
     _bgController.dispose();
+    _isBannerLoadedNotifier.dispose();
     super.dispose();
   }
 
@@ -122,29 +126,39 @@ class _GameScreenState extends State<GameScreen>
                     DailySpinOverlay(game: game as TimelessGame),
                 'SettingsMenu': (context, game) =>
                     SettingsOverlay(game: game as TimelessGame),
-                'ThemeMenu': (context, game) => 
-                    ThemeMenu(game: game as TimelessGame),    
+                'ThemeMenu': (context, game) =>
+                    ThemeMenu(game: game as TimelessGame),
               },
             ),
 
-            // 3. KATMAN: ALT BANNER REKLAM (ShopMenu Açıksa Gizlenir)
-            if (_isBannerLoaded &&
-                _bannerAd != null &&
-                !game.overlays.isActive('ShopMenu'))
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Container(
-                    color: Colors.black, // Reklamın arkasındaki boşluğu kapatır
-                    width: _bannerAd!.size.width.toDouble(),
-                    height: _bannerAd!.size.height.toDouble(),
-                    alignment: Alignment.center,
-                    child: AdWidget(ad: _bannerAd!),
-                  ),
-                ),
-              ),
+            // 3. KATMAN: ALT BANNER REKLAM (ValueListenableBuilder ile İzole Edildi)
+            ValueListenableBuilder<bool>(
+              valueListenable: _isBannerLoadedNotifier,
+              builder: (context, isLoaded, child) {
+                // Eğer yüklendiyse, banner boş değilse ve market kapalıysa göster
+                if (isLoaded &&
+                    _bannerAd != null &&
+                    !game.overlays.isActive('ShopMenu')) {
+                  return Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      child: Container(
+                        color: Colors
+                            .black, // Reklamın arkasındaki boşluğu kapatır
+                        width: _bannerAd!.size.width.toDouble(),
+                        height: _bannerAd!.size.height.toDouble(),
+                        alignment: Alignment.center,
+                        child: AdWidget(ad: _bannerAd!),
+                      ),
+                    ),
+                  );
+                }
+                // Reklam yoksa ekranda yer kaplama
+                return const SizedBox.shrink();
+              },
+            ),
           ],
         ),
       ),

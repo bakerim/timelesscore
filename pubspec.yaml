@@ -22,9 +22,6 @@ dependencies:
   # Veri Saklama
   shared_preferences: ^2.2.3
 
-  # YENİ EKLENDİ: Dil Yönetimi
-  easy_localization: ^3.0.7
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -37,4 +34,19 @@ flutter:
   assets:
     - assets/images/
     - assets/audio/sfx/
-    - assets/translations/ # <-- BU SATIR ÖNEMLİ
+
+# İkon Ayarları (Oyunun kendi logosu kalır)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/splash.jpg" 
+  min_sdk_android: 21 
+
+# Açılış Ekranı (Splash) - DÜZELTİLDİ
+flutter_native_splash:
+  color: "#000000" # Logonun siyah arka planı
+  image: assets/images/moving_pixel.png # <-- OLMASI GEREKEN STÜDYO LOGOSU
+  fullscreen: true
+  android_12:
+    image: assets/images/moving_pixel.png # <-- OLMASI GEREKEN STÜDYO LOGOSU
+    color: "#000000"

@@ -14,11 +14,8 @@ class _SplashOverlayState extends State<SplashOverlay> {
   @override
   void initState() {
     super.initState();
-    // 3 saniye sonra Ana Menü'ye geçiş yap
     Timer(const Duration(seconds: 3), () {
-      // Widget'ın hala ağaçta olduğundan emin ol (güvenlik)
       if (mounted) {
-        // Kendini (SplashOverlay) kaldır ve AnaMenu'yü ekle
         widget.game.overlays.remove('Splash');
         widget.game.overlays.add('AnaMenu');
       }
@@ -28,18 +25,17 @@ class _SplashOverlayState extends State<SplashOverlay> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E17),
+      backgroundColor: const Color(0xFF000000), // Arka planı da siyah yapalım
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 1. Logo
+            // DÜZELTİLDİ: Artık stüdyo logosunu kullanıyor
             Image.asset(
-              'assets/images/moving_pixel.png',
-              width: 250,
+              'assets/images/moving_pixel.png', // <-- DEĞİŞTİ
+              width: 250, 
             ),
             const SizedBox(height: 40),
-            // 2. Yükleme İndikatörü
             const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.cyanAccent),
             ),

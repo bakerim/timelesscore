@@ -12,9 +12,9 @@ class Dil {
     final prefs = await SharedPreferences.getInstance();
     String? kayitliDil = prefs.getString('secili_dil');
 
-    if (kayitliDil != null && _sozluk.containsKey(kayitliDil)) {
+    if (_sozluk.containsKey(kayitliDil)) {
       // 1. Durum: Oyuncu daha önce ayarlardan dil seçmişse onu yükle
-      mevcutDil = kayitliDil;
+      mevcutDil = kayitliDil!;
     } else {
       // 2. Durum: Oyun İLK DEFA açılıyor. Telefonun dilini gizlice oku!
       String cihazDili =
