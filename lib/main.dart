@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; 
-import 'package:flame/flame.dart'; 
+import 'package:flutter/foundation.dart';
+import 'package:flame/flame.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+// --- YENİ EKLENEN KISIMLAR ---
+import 'package:firebase_core/firebase_core.dart';
 
 // --- KENDİ DOSYALARIMIZ ---
 import 'data/data_manager.dart';
-import 'core/localization.dart'; // Dil sistemi başlatılmalı
-
-// ARTIK OYUNU GERÇEK DOSYADAN BAŞLATIYORUZ
-import 'screens/game_screen.dart'; 
+import 'core/localization.dart';
+import 'screens/game_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // --- KRİTİK ADIM: Firebase'i burada başlatıyoruz ---
+  await Firebase.initializeApp();
+
   // Yöneticileri başlat
   await DataManager.init();
-  await Dil.init(); // Dil sistemini ayağa kaldır
+  await Dil.init();
 
   if (!kIsWeb) {
     await Flame.device.fullScreen();
@@ -38,9 +42,9 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
       ),
-      // OYUN ARTIK İÇERİDEKİ SAHTE SINIFTAN DEĞİL, 
+      // OYUN ARTIK İÇERİDEKİ SAHTE SINIFTAN DEĞİL,
       // SENİN HAZIRLADIĞIN GERÇEK game_screen.dart DOSYASINDAN BAŞLAYACAK!
-      home: const GameScreen(), 
+      home: const GameScreen(),
     );
   }
 }

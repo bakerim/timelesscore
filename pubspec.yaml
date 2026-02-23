@@ -21,6 +21,8 @@ dependencies:
   
   # Veri Saklama
   shared_preferences: ^2.2.3
+  firebase_core: ^4.4.0
+  firebase_analytics: ^12.1.2
 
 dev_dependencies:
   flutter_test:
