@@ -52,7 +52,7 @@ class _GameScreenState extends State<GameScreen>
 
   void _loadBanner() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // Google Test ID
+      adUnitId: 'ca-app-pub-6419457007009038/1001101068',
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(

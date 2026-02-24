@@ -1,14 +1,13 @@
 {
   "project_info": {
-    "project_number": "...",
-    "firebase_url": "...",
-    "project_id": "...",
-    "storage_bucket": "..."
+    "project_number": "952063105164",
+    "project_id": "timelesscorepuzzle",
+    "storage_bucket": "timelesscorepuzzle.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "...",
+        "mobilesdk_app_id": "1:952063105164:android:db50ce6d761b570f4f43a9",
         "android_client_info": {
           "package_name": "com.movingpixel.timelesscore"
         }
@@ -16,14 +15,15 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "..."
+          "current_key": "AIzaSyBt5FT7gDvWop8N5REA1SpH4B8tuB7LCsw"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": []
         }
-      }
+      },
+      "admob_app_id": "ca-app-pub-6419457007009038~1296289194"
     }
   ],
   "configuration_version": "1"

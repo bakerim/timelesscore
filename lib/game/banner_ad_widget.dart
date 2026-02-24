@@ -17,7 +17,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   // ÖNEMLİ: Uygulamayı yayınlarken kReleaseMode kısmındaki yere KENDİ BANNER ID'ni yazmalısın!
   // Şu an test reklamları (Google Test ID) çalışacak.
   final String adUnitId = kReleaseMode
-      ? 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY' // KENDİ GERÇEK ID'N BURAYA
+      ? 'ca-app-pub-6419457007009038/1001101068' // KENDİ GERÇEK ID'N BURAYA
       : 'ca-app-pub-3940256099942544/6300978111'; // GOOGLE TEST ID'Sİ
 
   @override

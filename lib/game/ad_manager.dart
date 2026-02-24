@@ -5,12 +5,12 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../data/data_manager.dart'; // <--- OYUNCUNUN VERİLERİ (VIP KONTROLÜ İÇİN)
 
 class AdManager {
-  // --- REKLAM KİMLİKLERİ (TEST ID'LERİ) ---
-  final String _bannerIdAndroid = 'ca-app-pub-3940256099942544/6300978111';
-  final String _interstitialIdAndroid =
-      'ca-app-pub-3940256099942544/1033173712';
-  final String _rewardedIdAndroid = 'ca-app-pub-3940256099942544/5224354917';
+  // --- GERÇEK REKLAM KİMLİKLERİ (TÜMÜ TAMAMLANDI) ---
+  final String _bannerIdAndroid = 'ca-app-pub-6419457007009038/1001101068';
+  final String _interstitialIdAndroid = 'ca-app-pub-6419457007009038/7255518226';
+  final String _rewardedIdAndroid = 'ca-app-pub-6419457007009038/1560013078';
 
+  // iOS Tarafı: Şimdilik Android (Google Play) çıkışı yaptığımız için buralar test kalabilir.
   final String _bannerIdIOS = 'ca-app-pub-3940256099942544/2934735716';
   final String _interstitialIdIOS = 'ca-app-pub-3940256099942544/4411468910';
   final String _rewardedIdIOS = 'ca-app-pub-3940256099942544/1712485313';
