@@ -1,6 +1,6 @@
-# myapp
+# timeless_core
 
-A new Flutter project.
+A new TimelessCore Puzzle Block Game
 
 ## Getting Started
 
