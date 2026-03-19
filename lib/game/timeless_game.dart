@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../core/constants.dart' as core;
 import '../data/data_manager.dart';
 import '../data/progress_manager.dart';
 import '../data/purchase_manager.dart';
@@ -19,25 +18,25 @@ import '../core/theme_manager.dart';
 
 import 'components/kare.dart';
 import 'components/star_background.dart';
-// Pause_button importu silindi, artık GameHUD içinden yönetiliyor.
 
 class TimelessGame extends FlameGame
     with PanDetector, HasCollisionDetection, TapCallbacks {
   late final AdManager adManager;
 
-  // ESKİ SKOR VE ELMAS YAZILARI SİLİNDİ (Artık Flutter GameHUD yönetiyor)
   late TextComponent comboYazisi;
   Kare? oyuncu;
 
   // --- OYUN AYARLARI ---
   final double gridSize = 50.0;
-  final double hudHeight = 110.0; // Ferah oyun alanı
-  final double safeBottomArea = 100.0;
+  final double hudHeight = 110.0;
+
+  // Yatay butonlar için alt boşluk jilet gibi 95.0'a çekildi.
+  final double safeBottomArea = 95.0;
   final Random _rng = Random();
 
   double sayac = 0;
-  double normalOyunHizi = core.GameConfig.initialSpeedMs / 1000.0;
-  double oyunHizi = core.GameConfig.initialSpeedMs / 1000.0;
+  double normalOyunHizi = 0.55;
+  double oyunHizi = 0.55;
 
   bool isTimeSlowed = false;
   double _slowMoOpacity = 0.0;
@@ -46,13 +45,18 @@ class TimelessGame extends FlameGame
     ..strokeWidth = 12
     ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 15);
 
-  int skor = 0, comboSayaci = 0, buOyunKazanilanKristal = 0, currentLevel = 1;
+  // YENİ EKLENTİ: blocksPlaced (Kaç blok yerleştirildiğini sayar)
+  int skor = 0,
+      comboSayaci = 0,
+      buOyunKazanilanKristal = 0,
+      currentLevel = 1,
+      blocksPlaced = 0;
+
   bool isGameOver = false,
       isPaused = true,
       isReviveScreenOpen = false,
       reviveUsed = false;
 
-  // --- KAYDIRMA HASSASİYETİ ---
   double suruklemeBirikimiX = 0, suruklemeBirikimiY = 0;
   bool dropLock = false;
 
@@ -83,7 +87,6 @@ class TimelessGame extends FlameGame
   }
 
   void _buildUI() {
-    // HUD arka planı
     add(RectangleComponent(
         position: Vector2(0, 0),
         size: Vector2(size.x, hudHeight),
@@ -147,6 +150,10 @@ class TimelessGame extends FlameGame
 
   void blokKatilastir(Kare k, {bool hizliIndiMi = false}) {
     k.tur = "duvar";
+
+    // YENİ EKLENTİ: Blok yere oturdu, sayacı artır!
+    blocksPlaced++;
+
     try {
       AudioManager.playSfx('sfx/drop.mp3');
     } catch (e) {}
@@ -154,6 +161,8 @@ class TimelessGame extends FlameGame
     if (!hizliIndiMi) {
       puanEkle(1);
     }
+
+    normalOyunHizi = max(0.08, normalOyunHizi * 0.995);
 
     if (!isTimeSlowed) {
       oyunHizi = normalOyunHizi;
@@ -243,25 +252,18 @@ class TimelessGame extends FlameGame
 
   void puanEkle(int miktar) {
     skor += miktar;
-    // skorYazisi.text = '$skor'; SATIRI SİLİNDİ
-
     ProgressManager().addXp(miktar);
 
     if (skor % 5000 < miktar) {
       DataManager.totalCoins += 1;
       buOyunKazanilanKristal += 1;
       DataManager.saveData();
-      // elmasYazisi.text = ... SATIRI SİLİNDİ
       _showFloatingText("+1 KRİSTAL", Colors.cyanAccent);
     }
 
     int yeniLevel = (skor / 1000).floor() + 1;
     if (yeniLevel > currentLevel) {
       currentLevel = yeniLevel;
-      normalOyunHizi = max(0.08, normalOyunHizi * 0.93);
-      if (!isTimeSlowed) {
-        oyunHizi = normalOyunHizi;
-      }
       try {
         AudioManager.playSfx('sfx/level_up.mp3');
       } catch (e) {}
@@ -273,6 +275,7 @@ class TimelessGame extends FlameGame
     overlays.clear();
     skor = 0;
     currentLevel = 1;
+    blocksPlaced = 0; // Sıfırladık
     comboSayaci = 0;
     comboYazisi.text = '';
     reviveUsed = false;
@@ -285,11 +288,28 @@ class TimelessGame extends FlameGame
     overlays.add('AnaMenu');
   }
 
-  // --- TELEFON FİZİKSEL GERİ TUŞU YÖNETİMİ ---
+  void yolHaritasinaDon() {
+    children.whereType<Kare>().forEach((k) => k.removeFromParent());
+    overlays.clear();
+    skor = 0;
+    currentLevel = 1;
+    blocksPlaced = 0; // Sıfırladık
+    comboSayaci = 0;
+    comboYazisi.text = '';
+    reviveUsed = false;
+    isGameOver = false;
+    buOyunKazanilanKristal = 0;
+    isPaused = true;
+    pauseEngine();
+
+    AudioManager.manageBgm(false);
+    overlays.add('Roadmap');
+  }
+
   bool onBackPressed() {
-    // 1. Ekstra menüler açıksa onları kapat
     if (overlays.isActive('Roadmap')) {
       overlays.remove('Roadmap');
+      overlays.add('AnaMenu');
       return false;
     } else if (overlays.isActive('ShopMenu')) {
       overlays.remove('ShopMenu');
@@ -306,22 +326,15 @@ class TimelessGame extends FlameGame
         overlays.add('AnaMenu');
       }
       return false;
-    }
-    // 2. Ana Menü açıksa uygulamadan çıkmasına izin ver
-    else if (overlays.isActive('AnaMenu')) {
+    } else if (overlays.isActive('AnaMenu')) {
       return true;
-    }
-    // 3. Oyun oynanıyorsa, duraklatma menüsünü (Pause) açar
-    else if (overlays.isActive('GameHUD')) {
+    } else if (overlays.isActive('GameHUD')) {
+      togglePause();
+      return false;
+    } else if (overlays.isActive('PauseMenu')) {
       togglePause();
       return false;
     }
-    // 4. Oyun zaten duraklatılmışsa, geri tuşuna basınca oyuna devam eder
-    else if (overlays.isActive('PauseMenu')) {
-      togglePause();
-      return false;
-    }
-
     return false;
   }
 
@@ -330,13 +343,14 @@ class TimelessGame extends FlameGame
     overlays.clear();
     skor = 0;
     comboSayaci = 0;
+    blocksPlaced = 0; // Sıfırladık
     comboYazisi.text = '';
     buOyunKazanilanKristal = 0;
     reviveUsed = false;
     isGameOver = false;
     isTimeSlowed = false;
 
-    normalOyunHizi = core.GameConfig.initialSpeedMs / 1000.0;
+    normalOyunHizi = 0.55;
     oyunHizi = normalOyunHizi;
 
     overlays.add('GameHUD');

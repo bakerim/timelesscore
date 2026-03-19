@@ -1,7 +1,0 @@
-flutter_native_splash:
-  color: "#121232"
-  image: assets/images/splash.jpg  # <-- BURAYI DA jpg YAPTIK
-  fullscreen: true
-  android_12:
-    image: assets/images/splash.jpg  # <-- VE BURAYI DA
-    color: "#121232"

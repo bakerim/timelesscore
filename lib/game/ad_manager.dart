@@ -8,7 +8,7 @@ class AdManager {
   // --- GERÇEK REKLAM KİMLİKLERİ (TÜMÜ TAMAMLANDI) ---
   final String _bannerIdAndroid = 'ca-app-pub-6419457007009038/1001101068';
   final String _interstitialIdAndroid = 'ca-app-pub-6419457007009038/7255518226';
-  final String _rewardedIdAndroid = 'ca-app-pub-6419457007009038/1560013078';
+  final String _rewardedIdAndroid = 'ca-app-pub-6419457007009038/2812588171';
 
   // iOS Tarafı: Şimdilik Android (Google Play) çıkışı yaptığımız için buralar test kalabilir.
   final String _bannerIdIOS = 'ca-app-pub-3940256099942544/2934735716';

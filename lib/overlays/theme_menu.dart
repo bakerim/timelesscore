@@ -72,9 +72,15 @@ class _ThemeMenuState extends State<ThemeMenu> {
         _updateUI();
 
         _showSnack(
-            "${theme.name} satın alındı ve uygulandı!", Colors.orangeAccent);
+            "${theme.name} açıldı! Kristallerin eksildi.", Colors.purpleAccent);
       } else {
-        _showSnack("Yetersiz Kristal! Lütfen markete git.", Colors.redAccent);
+        // --- GARANTİCİ TUZAK: Yetersiz bakiyede doğrudan Markete Yönlendir ---
+        _showSnack("Yetersiz Kristal! Markete yönlendiriliyorsunuz.",
+            Colors.redAccent);
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          widget.game.overlays.remove('ThemeMenu');
+          widget.game.overlays.add('ShopMenu');
+        });
       }
     }
   }
@@ -173,7 +179,7 @@ class _ThemeMenuState extends State<ThemeMenu> {
 
                   const SizedBox(height: 15),
 
-                  // --- KAPAT BUTONU ---
+                  // --- KAPAT BUTONU (Minimalist) ---
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -188,7 +194,7 @@ class _ThemeMenuState extends State<ThemeMenu> {
                         children: [
                           Icon(Icons.close_rounded),
                           SizedBox(width: 8),
-                          Text("KAPAT VE DÖN",
+                          Text("KAPAT",
                               style: TextStyle(
                                   fontSize: 16,
                                   letterSpacing: 1.5,
@@ -213,8 +219,16 @@ class _ThemeMenuState extends State<ThemeMenu> {
         margin: const EdgeInsets.only(bottom: 15),
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color:
-              theme.bgCenterColor, // Kartın arka planı temanın renginde olsun
+          // DEĞİŞİKLİK: Siyah temaların görünmez olmasını engellemek için hafif bir degrade (gradient) eklendi
+          gradient: LinearGradient(
+            colors: [
+              theme.bgCenterColor,
+              theme.bgCenterColor.withValues(alpha: 0.5),
+              Colors.black54,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isActive
@@ -275,7 +289,7 @@ class _ThemeMenuState extends State<ThemeMenu> {
                             fontWeight: FontWeight.w900)),
                     Text(
                       isActive
-                          ? "AKTİF KULLANILIYOR"
+                          ? "AKTİF"
                           : (isUnlocked ? "SAHİP OLUNDU" : "KİLİTLİ"),
                       style: TextStyle(
                         color: isActive

@@ -1,7 +1,7 @@
 name: timeless_core
 description: "A new TimelessCore Puzzle Block Game"
 publish_to: 'none' 
-version: 1.0.1+3
+version: 1.0.2+5
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -46,9 +46,9 @@ flutter_launcher_icons:
 
 # Açılış Ekranı (Splash) - DÜZELTİLDİ
 flutter_native_splash:
-  color: "#000000" # Logonun siyah arka planı
-  image: assets/images/moving_pixel.png # <-- OLMASI GEREKEN STÜDYO LOGOSU
+  color: "#121332"
+  image: assets/images/moving_pixel.png
   fullscreen: true
   android_12:
-    image: assets/images/moving_pixel.png # <-- OLMASI GEREKEN STÜDYO LOGOSU
-    color: "#000000"
+    image: assets/images/moving_pixel.png
+    color: "#121332"

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math';
@@ -56,16 +55,13 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
     super.dispose();
   }
 
-  // --- REWARD CLAIM (ÖDÜL ALMA) SİSTEMİ (GLITCH FİXLENDİ!) ---
+  // --- REWARD CLAIM (ÖDÜL ALMA) SİSTEMİ ---
   void _claimReward(int level, int amount) {
     setState(() {
-      // YENİ: Artık geçici değil, kalıcı DataManager'a kaydediyoruz!
       DataManager.claimReward(level);
       DataManager.totalCoins += amount;
       DataManager.saveData();
     });
-
-    // UI'daki kristal sayısını anında güncelle
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Row(children: [
@@ -288,7 +284,6 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
                     children: [
-                      // KUSURSUZ NAVİGASYON (Siyah ekran düşmanı)
                       IconButton(
                         onPressed: () => widget.game.anaMenuyeDon(),
                         icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -307,7 +302,6 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
                                   fontSize: 24,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 2)),
-                          // Sinerji: ProgressManager'ı dinler!
                           ValueListenableBuilder<int>(
                               valueListenable: ProgressManager().currentLevel,
                               builder: (context, currentLevel, child) {
@@ -326,7 +320,7 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
                 ),
               ),
 
-              // --- KIVRIMLI ROADMAP (SENİN TASARIMIN) ---
+              // --- KIVRIMLI ROADMAP ---
               Expanded(
                 child: ValueListenableBuilder<int>(
                     valueListenable: ProgressManager().currentLevel,
@@ -337,7 +331,6 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
                         padding: const EdgeInsets.only(bottom: 150, top: 50),
                         itemCount: _totalLevels,
                         itemBuilder: (context, index) {
-                          // Level tersine sıralanır (Aşağıdan yukarı gitme hissi için)
                           final int nodeLevel = _totalLevels - index;
                           return _buildPathSegment(nodeLevel, currentLevel);
                         },
@@ -355,14 +348,9 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
   Widget _buildPathSegment(int nodeLevel, int currentCareerLevel) {
     bool isLocked = nodeLevel > currentCareerLevel;
     bool isCurrent = nodeLevel == currentCareerLevel;
-
-    // YENİ: Geçici Set yerine doğrudan kalıcı DataManager'dan soruyoruz! (GLITCH FİXLENDİ)
     bool isClaimed = DataManager.isRewardClaimed(nodeLevel);
-
     bool isBoss = nodeLevel % 10 == 0;
-    bool isReward = nodeLevel % 5 == 0;
 
-    // Yılan kıvrımı (Sinüs dalgası) matematiği
     double offsetX = sin(nodeLevel * 0.5) * 80;
     double nextOffsetX = sin((nodeLevel - 1) * 0.5) * 80;
 
@@ -389,17 +377,16 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
                       content: Text("Bu seviyeye henüz ulaşmadın! 🔒"),
                       duration: Duration(milliseconds: 500),
                       backgroundColor: Colors.redAccent));
-                } else if (isClaimed) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text("Bu ödülü zaten aldın! ✅"),
-                      duration: Duration(milliseconds: 500)));
-                } else {
-                  // Her düğüme tıklayıp ödül alabilir. Reward ve Boss levellerde daha çok verir.
+                } else if (!isClaimed) {
+                  // DEĞİŞİKLİK BURADA: Artık ödülü alınmamış HER SEVİYE ödül ekranını açar!
                   _showPremiumRewardDialog(nodeLevel);
+                } else {
+                  // Ödülü de kapmışsa, geriye sadece oynamak kalıyor!
+                  widget.game.oyunuBaslat();
                 }
               },
               child: _buildNodeContent(
-                  nodeLevel, isLocked, isCurrent, isClaimed, isBoss, isReward),
+                  nodeLevel, isLocked, isCurrent, isClaimed, isBoss),
             ),
           ),
 
@@ -418,32 +405,29 @@ class _RoadmapOverlayState extends State<RoadmapOverlay>
   }
 
   // --- DÜĞÜM (NODE) GÖRSELİ ---
-  Widget _buildNodeContent(int level, bool isLocked, bool isCurrent,
-      bool isClaimed, bool isBoss, bool isReward) {
+  Widget _buildNodeContent(
+      int level, bool isLocked, bool isCurrent, bool isClaimed, bool isBoss) {
     double size = isBoss ? 80 : 60;
 
+    // DEĞİŞİKLİK: Görsel mantığı sadeleştirildi ve düzeltildi
     Color color = isLocked
         ? Colors.grey.shade800
-        : (isClaimed
-            ? Colors.green.shade900
-            : (isBoss ? Colors.redAccent.shade700 : Colors.cyan.shade700));
+        : (!isClaimed
+            ? (isBoss
+                ? Colors.redAccent.shade700
+                : Colors.amber.shade600) // Ödül varsa Sarı/Kırmızı
+            : Colors.cyan.shade700); // Ödül alındıysa Mavi (Oynanabilir)
+
     IconData icon = isLocked
         ? Icons.lock_rounded
-        : (isClaimed
-            ? Icons.check_rounded
-            : (isReward
-                ? Icons.card_giftcard_rounded
-                : Icons.play_arrow_rounded));
+        : (!isClaimed
+            ? Icons.card_giftcard_rounded // Ödül alınmadıysa Hediye Kutusu
+            : Icons.play_arrow_rounded); // Ödül alındıysa Oyna Butonu
 
-    // Claim edilebilir durumdaysa (Geçilmiş ama ödülü alınmamış)
     bool isClaimable = !isLocked && !isClaimed;
 
     return TweenAnimationBuilder<double>(
-      tween: Tween(
-          begin: 1.0,
-          end: isClaimable
-              ? 1.15
-              : 1.0), // Ödülü alınmadıysa kalp gibi atar/büyür
+      tween: Tween(begin: 1.0, end: isClaimable ? 1.15 : 1.0),
       duration: const Duration(milliseconds: 800),
       builder: (context, scale, child) {
         return Transform.scale(

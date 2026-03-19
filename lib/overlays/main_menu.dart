@@ -218,14 +218,16 @@ class _MainMenuState extends State<MainMenu> with TickerProviderStateMixin {
                                 );
                               }),
                           const SizedBox(height: 15),
+
+                          // DEĞİŞİKLİK: "Başla" Butonu artık Roadmap'i açıyor
                           _ClassicMenuButton(
-                            icon: Icons.play_arrow_rounded,
+                            icon: Icons.map_rounded,
                             label: Dil.get('basla'),
                             colors: [
                               Colors.greenAccent.shade400,
                               Colors.green.shade600
                             ],
-                            onTap: () => widget.game.oyunuBaslat(),
+                            onTap: () => _openOverlay('Roadmap'),
                           ),
                           const SizedBox(height: 10),
                           _ClassicMenuButton(
@@ -258,19 +260,14 @@ class _MainMenuState extends State<MainMenu> with TickerProviderStateMixin {
                 ),
 
                 // --- 3. ALT KISIM: YARDIMCI BUTONLAR ---
-                // Positioned ile banner boşluğunu garanti altına alarak tam 80px yukarıya sabitliyoruz.
                 Positioned(
                   bottom: 80,
                   left: 20,
                   right: 20,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _BottomNavButton(
-                          icon: Icons.map_rounded,
-                          label: Dil.get('yol_haritasi'),
-                          color: Colors.pinkAccent,
-                          onTap: () => _openOverlay('Roadmap')),
+                      // DEĞİŞİKLİK: Yol Haritası butonu kalktı, iki buton ortalandı
                       _BottomNavButton(
                           icon: Icons.casino_rounded,
                           label: Dil.get('cark'),

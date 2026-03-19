@@ -153,11 +153,14 @@ class _GameOverState extends State<GameOver>
                       icon: Icons.refresh_rounded,
                     ),
                     const SizedBox(height: 12),
+
+                    // DEĞİŞİKLİK: Doğrudan yeni oluşturduğumuz yolHaritasinaDon'u çağırıyoruz.
                     _actionButton(
-                      label: Dil.get('ana_menu').toUpperCase(),
+                      label: "YOL HARİTASI",
                       color: Colors.white.withValues(alpha: 0.1),
-                      onPressed: () => widget.game.anaMenuyeDon(),
+                      onPressed: () => widget.game.yolHaritasinaDon(),
                       isTextBtn: true,
+                      icon: Icons.map_rounded,
                     ),
                   ],
                 ),
@@ -245,15 +248,16 @@ class _GameOverState extends State<GameOver>
       width: double.infinity,
       height: 55,
       child: isTextBtn
-          ? TextButton(
+          ? TextButton.icon(
               style: TextButton.styleFrom(
                   backgroundColor: color,
+                  foregroundColor: Colors.white70,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15))),
               onPressed: onPressed,
-              child: Text(label,
-                  style: const TextStyle(
-                      color: Colors.white70, fontWeight: FontWeight.bold)),
+              icon: icon != null ? Icon(icon, size: 20) : const SizedBox(),
+              label: Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             )
           : ElevatedButton.icon(
               style: ElevatedButton.styleFrom(

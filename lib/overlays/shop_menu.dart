@@ -3,7 +3,7 @@ import 'dart:ui';
 import '../game/timeless_game.dart';
 import '../data/data_manager.dart';
 import '../core/localization.dart';
-import '../data/purchase_manager.dart'; // Yeni PurchaseManager bağlandı
+import '../data/purchase_manager.dart';
 
 class ShopMenu extends StatefulWidget {
   final TimelessGame game;
@@ -113,40 +113,52 @@ class _ShopMenuState extends State<ShopMenu>
                           _buildSectionTitle("PREMIUM"),
                           _buildRemoveAdsCard(),
                           const SizedBox(height: 25),
+
                           _buildSectionTitle("FREE REWARDS"),
                           _buildWatchAdCard(),
                           const SizedBox(height: 25),
+
                           _buildSectionTitle("CRYSTAL SHOP"),
                           const SizedBox(height: 10),
 
-                          // İŞTE İSTEDİĞİN DEĞİŞİKLİK: ARTIK ALT ALTA SATIR (ROW) LİSTESİ
+                          // --- PAKET 1: YEM (STARTER) ---
+                          // Düz fiyat, bonus yok. Sadece diğerlerini cazip kılmak için var.
                           _buildHorizontalPack(
                             title: "STARTER PACK",
                             amount: "50",
-                            priceId:
-                                "100_time_crystals", // DİKKAT: Yeni PurchaseManager ID'sine eşitlendi
+                            priceId: "crystals_50",
                             color: Colors.blueAccent,
                             icon: Icons.layers,
                           ),
                           const SizedBox(height: 12),
+
+                          // --- PAKET 2: ASIL SATMAK İSTEDİĞİMİZ (POPULAR) ---
+                          // Üstü çizili fiyat ve bonus etiketi eklendi!
                           ScaleTransition(
                             scale: _pulseAnimation,
                             child: _buildHorizontalPack(
                               title: "POPULAR PACK",
                               amount: "250",
-                              priceId: "250_time_crystals",
+                              priceId: "crystals_250",
                               color: Colors.purpleAccent,
                               icon: Icons.diamond,
                               isBestValue: true,
+                              bonusText: "+25% BONUS",
+                              oldPrice: "₺199.99",
                             ),
                           ),
                           const SizedBox(height: 12),
+
+                          // --- PAKET 3: BALİNA PAKETİ (LEGENDARY) ---
+                          // Yüksek fiyat, devasa bonus.
                           _buildHorizontalPack(
                             title: "LEGENDARY PACK",
                             amount: "1,000",
-                            priceId: "1000_time_crystals",
+                            priceId: "crystals_1000",
                             color: Colors.amberAccent,
                             icon: Icons.auto_awesome,
+                            bonusText: "+50% MEGA",
+                            oldPrice: "₺699.99",
                           ),
                           const SizedBox(height: 20),
                         ],
@@ -282,7 +294,7 @@ class _ShopMenuState extends State<ShopMenu>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isRemoved ? Icons.verified_user_rounded : Icons.diamond_outlined,
+              isRemoved ? Icons.verified_user_rounded : Icons.block_flipped,
               color: Colors.white,
               size: 30,
             ),
@@ -300,8 +312,9 @@ class _ShopMenuState extends State<ShopMenu>
                     fontSize: 18,
                   ),
                 ),
+                // DEĞİŞİKLİK: Yabancılar için daha ikonik/kısa bir mesaj
                 Text(
-                  isRemoved ? "Thank you!" : "Remove ads & Support dev",
+                  isRemoved ? "Thank you!" : "Play without interruptions",
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                 ),
@@ -311,7 +324,6 @@ class _ShopMenuState extends State<ShopMenu>
           if (!isRemoved)
             ElevatedButton(
               onPressed: () {
-                // YENİ PurchaseManager ID'Sİ BAĞLANDI
                 PurchaseManager.buyProduct(PurchaseManager.idRemoveAds);
               },
               style: ElevatedButton.styleFrom(
@@ -350,15 +362,19 @@ class _ShopMenuState extends State<ShopMenu>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(Dil.get("izle_kazan"),
+                  Text(
+                      Dil.get(
+                          "izle_kazan"), // Zaten localizasyon kullanmışsın, mükemmel
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16)),
+                  // DEĞİŞİKLİK: İngilizce metin yerine Evrensel İkon kullanıldı
                   const Row(
                     children: [
-                      Text("Reward: ",
-                          style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      Icon(Icons.card_giftcard_rounded,
+                          size: 12, color: Colors.grey),
+                      SizedBox(width: 4),
                       Icon(Icons.diamond, size: 12, color: Colors.cyanAccent),
                       Text(" +3",
                           style: TextStyle(
@@ -392,17 +408,14 @@ class _ShopMenuState extends State<ShopMenu>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text("WATCH",
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Icon(Icons.play_arrow_rounded,
+                size: 24), // Sadece "Play" ikonu (Evrensel dil)
           ),
         ],
       ),
     );
   }
 
-  // ==============================================================
-  // İŞTE YENİ SATIR (YATAY) TASARIMI: SÜTUNLAR GİTTİ, SATIRLAR GELDİ
-  // ==============================================================
   Widget _buildHorizontalPack({
     required String title,
     required String amount,
@@ -410,10 +423,11 @@ class _ShopMenuState extends State<ShopMenu>
     required Color color,
     required IconData icon,
     bool isBestValue = false,
+    String? bonusText, // YENİ PARAMETRE
+    String? oldPrice, // YENİ PARAMETRE
   }) {
     return GestureDetector(
       onTap: () {
-        // Gerçek Satın Alma Tetiklenir
         PurchaseManager.buyProduct(priceId);
       },
       child: Container(
@@ -433,7 +447,6 @@ class _ShopMenuState extends State<ShopMenu>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // SOL KISIM: İkon ve Miktar
             Row(
               children: [
                 Container(
@@ -456,13 +469,39 @@ class _ShopMenuState extends State<ShopMenu>
                             fontSize: 10,
                             fontWeight: FontWeight.w900),
                       ),
-                    Text(
-                      amount,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          amount,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        // DEĞİŞİKLİK: Efsanevi Fosforlu Bonus Etiketi!
+                        if (bonusText != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.greenAccent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: Colors.greenAccent
+                                      .withValues(alpha: 0.5)),
+                            ),
+                            child: Text(
+                              bonusText,
+                              style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ]
+                      ],
                     ),
                     const Text("Crystals",
                         style: TextStyle(color: Colors.white54, fontSize: 12)),
@@ -471,21 +510,39 @@ class _ShopMenuState extends State<ShopMenu>
               ],
             ),
 
-            // SAĞ KISIM: Fiyat Butonu
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _getPrice(priceId),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
+            // DEĞİŞİKLİK: Fiyat ve Çizili Eski Fiyat (Decoy Effect)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (oldPrice != null)
+                  Text(
+                    oldPrice,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                Container(
+                  margin: EdgeInsets.only(top: oldPrice != null ? 2 : 0),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getPrice(priceId),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -493,11 +550,10 @@ class _ShopMenuState extends State<ShopMenu>
     );
   }
 
-  // --- DÜZELTME: Fiyatları yeni ID'lere göre ayarladık ---
   String _getPrice(String productId) {
-    if (productId == "100_time_crystals") return "₺34.99";
-    if (productId == "250_time_crystals") return "₺149.99";
-    if (productId == "1000_time_crystals") return "₺499.99";
+    if (productId == "crystals_50") return "₺34.99";
+    if (productId == "crystals_250") return "₺149.99";
+    if (productId == "crystals_1000") return "₺499.99";
     if (productId == PurchaseManager.idRemoveAds) return "₺79.99";
     return "...";
   }
